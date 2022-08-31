@@ -366,11 +366,11 @@ class DB(object):
         # upload rooms
         buildings = json.loads((rest.get_buildings()))['buildings']
         
-            for room, parent in list(rooms_map.items()):
-                roomdata = {}
-                roomdata.update({'name': room})
-                roomdata.update({'building': parent})
-                rest.post_room(roomdata)
+        for room, parent in list(rooms_map.items()):
+            roomdata = {}
+            roomdata.update({'name': room})
+            roomdata.update({'building': parent})
+            rest.post_room(roomdata)
 
         # ============ ROWS AND RACKS ============
         with self.con:
