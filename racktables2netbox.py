@@ -330,7 +330,7 @@ class DB(object):
 
         print("Sites:")
         pp.pprint(sites_map)
-        
+        print("Rooms:")
         pp.pprint(rooms_map)
 
         print("Rack Groups:")
@@ -341,9 +341,9 @@ class DB(object):
 
             rackgroup = {}
 
-            if room not in sites_map.values():
+            if parent not in sites_map.values():
                 name = parent + "-" + room
-                rackgroup.update({'site': rooms_map[parent]})
+                rackgroup.update({'site': rooms_map[room]})
             else:
                 name = room
                 rackgroup.update({'site': parent})
