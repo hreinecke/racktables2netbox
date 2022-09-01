@@ -109,12 +109,12 @@ class REST(object):
         self.uploader(data, url)
 
     def post_location(self, data):
-        url = self.base_url + '/dcim/location/'
+        url = self.base_url + '/dcim/locations/'
         logger.info('Posting location data to {}'.format(url))
         self.uploader(data, url)
 
     def post_site(self, data):
-        url = self.base_url + '/dcim/site/'
+        url = self.base_url + '/dcim/sites/'
         logger.info('Posting room data to {}'.format(url))
         self.uploader(data, url)
 
@@ -188,7 +188,7 @@ class REST(object):
         data = self.fetcher(url)
         return data
 
-    def get_buildings(self):
+    def get_locations(self):
         url = self.base_url + '/dcim/locations/'
         logger.info('Fetching buildings from {}'.format(url))
         data = self.fetcher(url)
@@ -359,27 +359,68 @@ class DB(object):
                 rackgroup.update({'name': site_name})
 
                 rackgroups.append(rackgroup)
+            sitedata = {}
+            sitedata.update({'name': site_name})
+            sitedata.update({'slug': site_name.replace(' ', '_')})
+            sitedata.update({'Status': 'active'})
+            # rest.post_site(sitedata)
 
         pp.pprint(rackgroups)
 
         # upload rooms
-        rest.post_sites(site_map)
-        
+        site_map = {}
+        site_list = json.loads((rest.get_sites()))['results']
+        for site in site_list:
+            site_map[site['name']] = site['id']
+        pp.pprint(site_map)
+
+        loc_map = {}
+        loc_list = json.loads((rest.get_locations()))['results']
+        for loc in loc_list:
+            loc_map[loc['name']] = loc['id']
+        pp.pprint('Location map')
+        pp.pprint(loc_map)
         for room, parent in list(rooms_map.items()):
+            if room in loc_map.keys():
+                continue
             roomdata = {}
+            if parent == 'Nuremberg':
+                parent = 'Nuremberg-Maxtorhof'
+            roomdata.update({'site': site_map[parent]})
             roomdata.update({'name': room})
-            roomdata.update({'site': parent})
+            if room == 'NUE Lab 2.3.12 (Arch)':
+                slug = 'NUE-LAB-2-3-12'
+            elif room == 'NUE Lab 2.1.35 (NTS)':
+                slug = 'NUE-LAB-2-1-35'
+            elif room == 'NUE Lab 2.2.14 (TAM)':
+                slug = 'NUE-LAB-2-2-14'
+            elif room == 'NUE-Store (Cellar)':
+                slug = 'NUE-CELLAR'
+            elif room == 'NUE Lab 2.3.14 (Workshop)':
+                slug = 'NUE-LAB-WORKSHOP'
+            elif room == 'NUE Office 3.2.29':
+                slug = 'NUE-OFFICE-3-2-29'
+            elif room == 'NUE Lab 1.1.6 (Backup)':
+                slug = 'NUE-LAB-1-1-6'
+            else:
+                slug = room.replace(' ', '_')
+            roomdata.update({'slug': slug})
+            roomdata.update({'Status': 'active'})
             rest.post_location(roomdata)
 
         # ============ ROWS AND RACKS ============
+        if not self.con:
+            self.connect()
+
         with self.con:
             cur = self.con.cursor()
-            q = """SELECT id, name ,height, row_id, row_name, location_id, location_name from Rack;"""
+            q = """SELECT id from RackSpace;"""
+            # q = """SELECT id, name, height, row_name, location_name from Rack;"""
             cur.execute(q)
             raw = cur.fetchall()
 
         for rec in raw:
-            rack_id, rack_name, height, row_id, row_name, location_id, location_name = rec
+            rack_id, rack_name, height, row_name, location_name = rec
 
             rows_map.update({row_name: location_name})
 
