@@ -462,14 +462,16 @@ class DB(object):
             rack_id, rack_name, height, row_name, location_name = rec
 
             rows_map.update({row_name: location_name})
-
+            loc_data = json.loads((rest.check_location(row_name)))['results']
+            if not loc_data:
+                continue
+            pp.pprint(loc_data)
             # prepare rack data. We will upload it a little bit later
             rack = {}
             rack.update({'name': rack_name})
             rack.update({'size': height})
-            rack.update({'rt_id': rack_id})  # we will remove this later
-            rack.update({'room': row_name})
-            rack.update({'location': location_name})
+            rack.update({'location': loc_data[0]['id']})
+            rack.update({'site': (loc_data[0]['site'])['id']})
             racks.append(rack)
 
         # upload rows as child locations
