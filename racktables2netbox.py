@@ -465,7 +465,6 @@ class DB(object):
             loc_data = json.loads((rest.check_location(row_name)))['results']
             if not loc_data:
                 continue
-            pp.pprint(loc_data)
             # prepare rack data. We will upload it a little bit later
             rack = {}
             rack.update({'name': rack_name})
@@ -494,12 +493,11 @@ class DB(object):
             msg = ('Racks', str(racks))
             logger.debug(msg)
         for rack in racks:
-            rt_rack_id = rack['rt_id']
-            del rack['rt_id']
-            response = rest.post_rack(rack)
-            d42_rack_id = response['msg'][1]
-
-            self.rack_id_map.update({rt_rack_id: d42_rack_id})
+            try:
+                response = rest.post_rack(rack)
+            except:
+                continue
+            pp.pprint(response)
 
         self.all_ports = self.get_ports()
 
