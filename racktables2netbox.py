@@ -437,9 +437,11 @@ class DB(object):
         pp.pprint(site_map)
 
         loc_map = {}
+        loc_site_map = {}
         loc_list = json.loads((rest.get_locations()))['results']
         for loc in loc_list:
             loc_map[loc['name']] = loc['id']
+            loc_site_map[loc['name']] = (loc['site'])['id']
         pp.pprint('Location map')
         pp.pprint(loc_map)
 
@@ -462,11 +464,14 @@ class DB(object):
             msg = ('Rooms', str(rows_map))
             logger.debug(msg)
         for room, parent in list(rows_map.items()):
+            if room in loc_map.keys():
+                continue
             roomdata = {}
             roomdata.update({'name': room})
             roomdata.update({'parent': loc_map[parent]})
-            roomdata.update({'site': site_map[parent]})
-            roomdata.update({'slug': room})
+            roomdata.update({'site': loc_site_map[parent]})
+            slug = room.replace('.','-')
+            roomdata.update({'slug': slug.replace('/','-')})
             rest.post_location(roomdata)
         # upload racks
         if config['Log']['DEBUG']:
@@ -1276,7 +1281,7 @@ if __name__ == '__main__':
     racktables = DB()
     #racktables.get_subnets()
     #racktables.get_ips()
-    #racktables.get_locations()
+    racktables.get_locations()
     racktables.get_racks()
     racktables.get_hardware()
     racktables.get_container_map()
