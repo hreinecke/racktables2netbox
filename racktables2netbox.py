@@ -425,9 +425,23 @@ class DB(object):
         # ============ ROWS AND RACKS ============
         with self.con:
             cur = self.con.cursor()
-            q = """SELECT id, name, height, row_name, location_name from Rack;"""
+            q = """SELECT id, name, height, row_name, location_name from Rack"""
             cur.execute(q)
             raw = cur.fetchall()
+
+        site_map = {}
+        site_list = json.loads((rest.get_sites()))['results']
+        for site in site_list:
+            site_map[site['name']] = site['id']
+        pp.pprint('Site map')
+        pp.pprint(site_map)
+
+        loc_map = {}
+        loc_list = json.loads((rest.get_locations()))['results']
+        for loc in loc_list:
+            loc_map[loc['name']] = loc['id']
+        pp.pprint('Location map')
+        pp.pprint(loc_map)
 
         for rec in raw:
             rack_id, rack_name, height, row_name, location_name = rec
@@ -439,30 +453,21 @@ class DB(object):
             rack.update({'name': rack_name})
             rack.update({'size': height})
             rack.update({'rt_id': rack_id})  # we will remove this later
-            if config['Misc']['ROW_AS_ROOM']:
-                rack.update({'room': row_name})
-                rack.update({'location': location_name})
-            else:
-                row_name = row_name[:10]  # there is a 10char limit for row name
-                rack.update({'row': row_name})
-                if location_name in rooms_map:
-                    rack.update({'room': location_name})
-                    building_name = rooms_map[location_name]
-                    rack.update({'location': building_name})
-                else:
-                    rack.update({'location': location_name})
+            rack.update({'room': row_name})
+            rack.update({'location': location_name})
             racks.append(rack)
 
-        # upload rows as rooms
-        if config['Misc']['ROW_AS_ROOM']:
-            if config['Log']['DEBUG']:
-                msg = ('Rooms', str(rows_map))
-                logger.debug(msg)
-            for room, parent in list(rows_map.items()):
-                roomdata = {}
-                roomdata.update({'name': room})
-                roomdata.update({'location': parent})
-                rest.post_room(roomdata)
+        # upload rows as child locations
+        if config['Log']['DEBUG']:
+            msg = ('Rooms', str(rows_map))
+            logger.debug(msg)
+        for room, parent in list(rows_map.items()):
+            roomdata = {}
+            roomdata.update({'name': room})
+            roomdata.update({'parent': loc_map[parent]})
+            roomdata.update({'site': site_map[parent]})
+            roomdata.update({'slug': room})
+            rest.post_location(roomdata)
         # upload racks
         if config['Log']['DEBUG']:
             msg = ('Racks', str(racks))
@@ -1271,7 +1276,7 @@ if __name__ == '__main__':
     racktables = DB()
     #racktables.get_subnets()
     #racktables.get_ips()
-    racktables.get_locations()
+    #racktables.get_locations()
     racktables.get_racks()
     racktables.get_hardware()
     racktables.get_container_map()
