@@ -109,12 +109,12 @@ class REST(object):
         self.uploader(data, url)
 
     def post_location(self, data):
-        url = self.base_url + '/1.0/location/'
+        url = self.base_url + '/dcim/location/'
         logger.info('Posting location data to {}'.format(url))
         self.uploader(data, url)
 
-    def post_room(self, data):
-        url = self.base_url + '/1.0/rooms/'
+    def post_site(self, data):
+        url = self.base_url + '/dcim/site/'
         logger.info('Posting room data to {}'.format(url))
         self.uploader(data, url)
 
@@ -189,13 +189,13 @@ class REST(object):
         return data
 
     def get_buildings(self):
-        url = self.base_url + '/dcim/sites/'
+        url = self.base_url + '/dcim/locations/'
         logger.info('Fetching buildings from {}'.format(url))
         data = self.fetcher(url)
         return data
 
-    def get_rooms(self):
-        url = self.base_url + '/1.0/rooms/'
+    def get_sites(self):
+        url = self.base_url + '/dcim/sites/'
         logger.info('Fetching rooms from {}'.format(url))
         data = self.fetcher(url)
         return data
@@ -333,7 +333,7 @@ class DB(object):
         print("Rooms:")
         pp.pprint(rooms_map)
 
-        print("Rack Groups:")
+        print("Locations:")
         for room, parent in list(rooms_map.items()):
             if parent in sites_map.values():
                 if room in rooms_map.values():
@@ -362,18 +362,14 @@ class DB(object):
 
         pp.pprint(rackgroups)
 
-        
         # upload rooms
-        try:
-            buildings = json.loads((rest.get_buildings()))['buildings']
-        except:
-            pass
+        rest.post_sites(site_map)
         
         for room, parent in list(rooms_map.items()):
             roomdata = {}
             roomdata.update({'name': room})
-            roomdata.update({'building': parent})
-            rest.post_room(roomdata)
+            roomdata.update({'site': parent})
+            rest.post_location(roomdata)
 
         # ============ ROWS AND RACKS ============
         with self.con:
@@ -394,16 +390,16 @@ class DB(object):
             rack.update({'rt_id': rack_id})  # we will remove this later
             if config['Misc']['ROW_AS_ROOM']:
                 rack.update({'room': row_name})
-                rack.update({'building': location_name})
+                rack.update({'location': location_name})
             else:
                 row_name = row_name[:10]  # there is a 10char limit for row name
                 rack.update({'row': row_name})
                 if location_name in rooms_map:
                     rack.update({'room': location_name})
                     building_name = rooms_map[location_name]
-                    rack.update({'building': building_name})
+                    rack.update({'location': building_name})
                 else:
-                    rack.update({'building': location_name})
+                    rack.update({'location': location_name})
             racks.append(rack)
 
         # upload rows as rooms
@@ -414,7 +410,7 @@ class DB(object):
             for room, parent in list(rows_map.items()):
                 roomdata = {}
                 roomdata.update({'name': room})
-                roomdata.update({'building': parent})
+                roomdata.update({'location': parent})
                 rest.post_room(roomdata)
         # upload racks
         if config['Log']['DEBUG']:
