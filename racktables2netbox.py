@@ -119,7 +119,7 @@ class REST(object):
         self.uploader(data, url)
 
     def post_rack(self, data):
-        url = self.base_url + '/1.0/racks/'
+        url = self.base_url + '/dcim/racks/'
         logger.info('Posting rack data to {}'.format(url))
         response = self.uploader(data, url)
         return response
@@ -191,6 +191,12 @@ class REST(object):
     def get_locations(self):
         url = self.base_url + '/dcim/locations/'
         logger.info('Fetching buildings from {}'.format(url))
+        data = self.fetcher(url)
+        return data
+
+    def check_location(self, loc):
+        url = self.base_url + '/dcim/locations/?slug=' + loc
+        logger.info('Checking location from {}'.format(url))
         data = self.fetcher(url)
         return data
 
@@ -404,6 +410,13 @@ class DB(object):
                 slug = 'NUE-LAB-1-1-6'
             else:
                 slug = room.replace(' ', '_')
+            data = {}
+            try:
+                data = rest.check_location(slug)
+            except:
+                pass
+            if data:
+                continue
             roomdata.update({'slug': slug})
             roomdata.update({'Status': 'active'})
             rest.post_location(roomdata)
@@ -464,6 +477,7 @@ class DB(object):
             msg = ('Rooms', str(rows_map))
             logger.debug(msg)
         for room, parent in list(rows_map.items()):
+            continue
             if room in loc_map.keys():
                 continue
             roomdata = {}
@@ -1281,7 +1295,7 @@ if __name__ == '__main__':
     racktables = DB()
     #racktables.get_subnets()
     #racktables.get_ips()
-    racktables.get_locations()
+    #racktables.get_locations()
     racktables.get_racks()
     racktables.get_hardware()
     racktables.get_container_map()
