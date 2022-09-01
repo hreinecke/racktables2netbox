@@ -300,9 +300,9 @@ class DB(object):
             subs.update({'description':name})
             rest.post_subnet(subs)        
 
-    def get_infrastructure(self):
+    def get_locations(self):
         """
-        Get locations, rows and racks from RT, convert them to buildings and rooms and send to uploader.
+        Get locations, convert them to buildings and rooms and send to uploader.
         :return:
         """
         sites_map = {}
@@ -408,14 +408,24 @@ class DB(object):
             roomdata.update({'Status': 'active'})
             rest.post_location(roomdata)
 
-        # ============ ROWS AND RACKS ============
+    def get_racks(self):
+        """
+        Get rows and racks from RT, convert them to rooms and send to uploader.
+        :return:
+        """
+        sites_map = {}
+        rooms_map = {}
+        rows_map = {}
+        rackgroups = []
+        racks = []
+
         if not self.con:
             self.connect()
 
+        # ============ ROWS AND RACKS ============
         with self.con:
             cur = self.con.cursor()
-            q = """SELECT id from RackSpace;"""
-            # q = """SELECT id, name, height, row_name, location_name from Rack;"""
+            q = """SELECT id, name, height, row_name, location_name from Rack;"""
             cur.execute(q)
             raw = cur.fetchall()
 
@@ -1261,7 +1271,8 @@ if __name__ == '__main__':
     racktables = DB()
     #racktables.get_subnets()
     #racktables.get_ips()
-    racktables.get_infrastructure()
+    racktables.get_locations()
+    racktables.get_racks()
     racktables.get_hardware()
     racktables.get_container_map()
     racktables.get_chassis()
