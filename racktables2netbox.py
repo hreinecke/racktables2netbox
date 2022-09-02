@@ -141,7 +141,7 @@ class REST(object):
         logger.info('Posting PDU to rack {}'.format(rack))
         self.uploader(data, url)
 
-    def port_manufacturer(self, data):
+    def post_manufacturer(self, data):
         url = self.base_url + '/dcim/manufacturers/'
         logger.info('Posting manufacturer data to {}'.format(url))
         self.uploader(data, url)
@@ -212,12 +212,17 @@ class REST(object):
         data = self.fetcher(url)
         return data
 
-    def check_manufacturer(self, site):
-        url = self.base_url + '/dcim/manufacturers/?slug=' + loc
-        logger.info('Checking site from {}'.format(url))
+    def check_manufacturer(self, manuf):
+        url = self.base_url + '/dcim/manufacturers/?slug=' + manuf
+        logger.info('Checking manufacturer from {}'.format(url))
         data = self.fetcher(url)
         return data
 
+    def check_hardware(self, hw):
+        url = self.base_url + '/dcim/device-types/?slug=' + hw
+        logger.info('Checking hardware from ()'.format(url))
+        data = self.fetcher(url)
+        return data
 
 class DB(object):
     """
@@ -522,16 +527,25 @@ class DB(object):
 
             if config['Log']['DEBUG']:
                 msg = ('Hardware', str(data))
-                logger.debug(msg)
+                # logger.debug(msg)
 
             # Upload manufacturer list
             for line in data:
                 hwddata = {}
                 line = [0 if not x else x for x in line]
                 data_id, description, name, asset, dtype = line
-
+                pp.pprint(dtype)
                 if '%GPASS%' in dtype:
-                    vendor, model = dtype.split("%GPASS%")
+                    venmod, model = dtype.split("%GPASS%")
+                    vendor = venmod.lstrip('[ ')
+                elif '%GSKIP%' in dtype:
+                    venmod, model = dtype.split("%GSKIP%")
+                    vendor = venmod.lstrip('[ ')
+                elif dtype == '[[ThinkPadLenovo%XCC-MTM%2U NDA Chassis%L1,2H%]]':
+                    vendor = 'Lenovo'
+                elif '[[' in dtype:
+                    venmod, url = dtype.split("|")
+                    vendor = (venmod.lstrip('[ ')).rstrip(' ')
                 elif len(dtype.split()) > 1:
                     venmod = dtype.split()
                     vendor = venmod[0]
@@ -539,34 +553,21 @@ class DB(object):
                 else:
                     vendor = dtype
                     model = dtype
+                slug = (vendor.replace('/', '-')).replace(' ','_')
+                if slug == '[[Aten':
+                    continue
                 manuf_data = None
                 try:
-                    manuf_data = rest.check_manufacturer(vendor)
+                    manuf_data = json.loads((rest.check_manufacturer(slug)))['results']
                 except:
                     pass
-                if manuf_data:
-                    continue
-                manuf = {}
-                manuf.update({'name': vendor})
-                manuf.update({'slug': vendor})
-                rest.post_manufacturer(manuf)
+                if not manuf_data:
+                    manuf = {}
+                    manuf.update({'name': vendor})
+                    manuf.update({'slug': slug})
+                    rest.post_manufacturer(manuf)
 
-            for line in data:
-                hwddata = {}
-                line = [0 if not x else x for x in line]
-                data_id, description, name, asset, dtype = line
-
-                if '%GPASS%' in dtype:
-                    vendor, model = dtype.split("%GPASS%")
-                elif len(dtype.split()) > 1:
-                    venmod = dtype.split()
-                    vendor = venmod[0]
-                    model = ' '.join(venmod[1:])
-                else:
-                    vendor = dtype
-                    model = dtype
-
-                manuf_data = json.loads((rest.check_manufacturer(vendor)))['results']
+                manuf_data = json.loads((rest.check_manufacturer(slug)))['results']
                 if not manuf_data:
                     pp.pprint('Vendor ' + vendor + ' not found')
                     continue
@@ -574,11 +575,20 @@ class DB(object):
                 if not size:
                     continue
                 floor, height, depth, mount = size
+                slug = model.replace('/', '-')
+                hw = None
+                try:
+                    hw = json.loads((rest.check_hardware(slug)))['results']
+                except:
+                    pass
+                if hw:
+                    continue
+                hwddata = {}
                 hwddata.update({'comments': description})
                 hwddata.update({'u_height': height})
                 hwddata.update({'model': model})
-                hwddata.update({'slug': model.replace('/','-')})
-                hwddata.update({'manufacturer': manuf_data['id']})
+                hwddata.update({'slug': slug})
+                hwddata.update({'manufacturer': manuf_data[0]['id']})
                 rest.post_hardware(hwddata)
 
     def get_hardware_size(self, data_id):
@@ -591,14 +601,15 @@ class DB(object):
             depth   - depth of the device (full, half)
             mount   - orientation of the device in the rack. Can be front or back
         """
-        if not self.con:
-            self.connect()
-        with self.con:
+        # if not self.con:
+        #    self.connect()
+        # with self.con:
             # get hardware items
-            cur = self.con.cursor()
-            q = """SELECT unit_no,atom FROM RackSpace WHERE object_id = %s""" % data_id
-            cur.execute(q)
-            data = cur.fetchall()
+        cur = self.con.cursor()
+        q = """SELECT unit_no,atom FROM RackSpace WHERE object_id = %s""" % data_id
+        cur.execute(q)
+        data = cur.fetchall()
+        cur.close()
 
         if data != ():
             front = 0
