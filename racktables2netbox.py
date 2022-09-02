@@ -456,7 +456,16 @@ class DB(object):
                 slug = slugify.slugify(parent)
                 loc_data = json.loads((rest.check_location(slug)))['results']
                 if not loc_data:
-                    pp.pprint('Location ' + room + ' not found')
+                    pp.pprint('Location ' + room + ' at ' + parent + ' not found')
+                    continue
+                roomdata = {}
+                slug = slugify.slugify(room)
+                try:
+                    roomdata = (json.loads(rest.check_location(slug)))['results']
+                except:
+                    pass
+                if roomdata:
+                    pp.pprint('Room ' + room + ' at site ' + parent + ' already present')
                     continue
                 roomdata = {}
                 roomdata.update({'name': room})
@@ -1326,8 +1335,8 @@ if __name__ == '__main__':
     racktables = DB()
     #racktables.get_subnets()
     #racktables.get_ips()
-    racktables.get_locations()
-    #racktables.get_racks()
+    #racktables.get_locations()
+    racktables.get_racks()
     #racktables.get_hardware()
     #racktables.get_container_map()
     #racktables.get_chassis()
