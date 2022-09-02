@@ -437,8 +437,14 @@ class DB(object):
                 rack_id, rack_name, height, row_name, location_name = rec
 
                 rows_map.update({row_name: location_name})
-                loc_data = json.loads((rest.check_location(row_name)))['results']
+                slug = slugify.slugify(row_name)
+                loc_data = (json.loads(rest.check_location(slug)))['results']
                 if not loc_data:
+                    pp.pprint('No location for ' + row_name)
+                    continue
+                rack_data = {}
+                rack_data = (json.loads(rest.check_rack(slug, rack_name)))['results']
+                if rack_data:
                     continue
                 # prepare rack data. We will upload it a little bit later
                 rack = {}
@@ -478,10 +484,7 @@ class DB(object):
                 msg = ('Racks', str(racks))
                 logger.debug(msg)
             for rack in racks:
-                try:
-                    response = rest.post_rack(rack)
-                except:
-                    continue
+                response = rest.post_rack(rack)
                 pp.pprint(response)
 
     def get_hardware(self):
