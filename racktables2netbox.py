@@ -889,7 +889,8 @@ class DB(object):
         if hardware:
             hwdata = json.loads(rest.check_hardware(slugify.slugify(hardware)))['results']
             pp.pprint(hwdata)
-            devicedata.update({'device_type': hwdata[0]['id']})
+            if hwdata:
+                devicedata.update({'device_type': hwdata[0]['id']})
 
         if name:
             data = {}
