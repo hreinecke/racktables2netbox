@@ -497,7 +497,7 @@ class DB(object):
                 msg = ('Rooms', str(rows_map))
                 logger.debug(msg)
             for room, parent in list(rows_map.items()):
-                slug = (room.replace('.','_')).replace('/','-')
+                slug = slugify.slugify(parent)
                 loc_data = json.loads((rest.check_location(slug)))['results']
                 if not loc_data:
                     pp.pprint('Location ' + room + ' not found')
@@ -506,7 +506,7 @@ class DB(object):
                 roomdata.update({'name': room})
                 roomdata.update({'parent': loc_data[0]['id']})
                 roomdata.update({'site': (loc_data[0]['site'])['id']})
-                roomdata.update({'slug': slug})
+                roomdata.update({'slug': slugify.slugify(room)})
                 rest.post_location(roomdata)
             # upload racks
             if config['Log']['DEBUG']:
@@ -1371,7 +1371,7 @@ if __name__ == '__main__':
     #racktables.get_subnets()
     #racktables.get_ips()
     #racktables.get_locations()
-    #racktables.get_racks()
+    racktables.get_racks()
     #racktables.get_hardware()
     #racktables.get_container_map()
     #racktables.get_chassis()
