@@ -151,11 +151,6 @@ class REST(object):
         logger.info('Adding device to rack at {}'.format(url))
         self.uploader(data, url)
 
-    def post_building(self, data):
-        url = self.base_url + '/dcim/sites/'
-        logger.info('Uploading building data to {}'.format(url))
-        self.uploader(data, url)
-
     def post_switchport(self, data):
         url = self.base_url + '/1.0/switchports/'
         logger.info('Uploading switchports data to {}'.format(url))
@@ -194,15 +189,21 @@ class REST(object):
         data = self.fetcher(url)
         return data
 
+    def get_sites(self):
+        url = self.base_url + '/dcim/sites/'
+        logger.info('Fetching rooms from {}'.format(url))
+        data = self.fetcher(url)
+        return data
+
     def check_location(self, loc):
         url = self.base_url + '/dcim/locations/?slug=' + loc
         logger.info('Checking location from {}'.format(url))
         data = self.fetcher(url)
         return data
 
-    def get_sites(self):
-        url = self.base_url + '/dcim/sites/'
-        logger.info('Fetching rooms from {}'.format(url))
+    def check_site(self, site):
+        url = self.base_url + '/dcim/sites/?slug=' + loc
+        logger.info('Checking site from {}'.format(url))
         data = self.fetcher(url)
         return data
 
@@ -317,8 +318,7 @@ class DB(object):
         rackgroups = []
         racks = []
 
-        if not self.con:
-            self.connect()
+        self.connect()
 
         # ============ BUILDINGS AND ROOMS ============
         with self.con:
@@ -442,22 +442,6 @@ class DB(object):
             cur.execute(q)
             raw = cur.fetchall()
 
-        site_map = {}
-        site_list = json.loads((rest.get_sites()))['results']
-        for site in site_list:
-            site_map[site['name']] = site['id']
-        pp.pprint('Site map')
-        pp.pprint(site_map)
-
-        loc_map = {}
-        loc_site_map = {}
-        loc_list = json.loads((rest.get_locations()))['results']
-        for loc in loc_list:
-            loc_map[loc['name']] = loc['id']
-            loc_site_map[loc['name']] = (loc['site'])['id']
-        pp.pprint('Location map')
-        pp.pprint(loc_map)
-
         for rec in raw:
             rack_id, rack_name, height, row_name, location_name = rec
 
@@ -478,15 +462,16 @@ class DB(object):
             msg = ('Rooms', str(rows_map))
             logger.debug(msg)
         for room, parent in list(rows_map.items()):
-            continue
-            if room in loc_map.keys():
+            slug = (room.replace('.','_')).replace('/','-')
+            loc_data = json.loads((rest.check_location(slug)))['results']
+            if not loc_data:
+                pp.pprint('Location ' + room + ' not found')
                 continue
             roomdata = {}
             roomdata.update({'name': room})
-            roomdata.update({'parent': loc_map[parent]})
-            roomdata.update({'site': loc_site_map[parent]})
-            slug = room.replace('.','-')
-            roomdata.update({'slug': slug.replace('/','-')})
+            roomdata.update({'parent': loc_data[0]['id']})
+            roomdata.update({'site': (loc_data[0]['site'])['id']})
+            roomdata.update({'slug': slug})
             rest.post_location(roomdata)
         # upload racks
         if config['Log']['DEBUG']:
@@ -521,7 +506,7 @@ class DB(object):
                     WHERE Attribute.id=2 AND Object.objtype_id != 2
                     """
             cur.execute(q)
-        data = cur.fetchall()
+            data = cur.fetchall()
 
         if config['Log']['DEBUG']:
             msg = ('Hardware', str(data))
@@ -535,7 +520,7 @@ class DB(object):
         for line in data:
             line = [0 if not x else x for x in line]
             data_id, description, name, asset, dtype = line
-            size = self.get_hardware_size(data_id)
+            size = self.get_hardware_size(cur, data_id)
             if size:
                 floor, height, depth, mount = size
                 if data_id not in hwsize_map:
@@ -722,8 +707,7 @@ class DB(object):
             self.container_map.update({object_id: container_id})
 
     def get_devices(self):
-        if not self.con:
-            self.connect()
+        self.connect()
         with self.con:
             cur = self.con.cursor()
             # get object IDs
@@ -1296,7 +1280,7 @@ if __name__ == '__main__':
     #racktables.get_subnets()
     #racktables.get_ips()
     #racktables.get_locations()
-    racktables.get_racks()
+    #racktables.get_racks()
     racktables.get_hardware()
     racktables.get_container_map()
     racktables.get_chassis()
