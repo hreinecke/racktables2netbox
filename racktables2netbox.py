@@ -104,7 +104,7 @@ class REST(object):
         self.uploader(data, url)
 
     def post_device(self, data):
-        url = self.base_url + '/1.0/device/'
+        url = self.base_url + '/dcim/devices/'
         logger.info('Posting device data to {}'.format(url))
         self.uploader(data, url)
 
@@ -182,8 +182,14 @@ class REST(object):
         ata = self.fetcher(url)
         return data
 
+    def get_device_roles(self):
+        url = self.base_url + '/dcim/device-roles/'
+        logger.info('Fetching device roles from {}'.format(url))
+        data = self.fetcher(url)
+        return data
+
     def get_devices(self):
-        url = self.base_url + '/1.0/devices/'
+        url = self.base_url + '/dcim/devices/'
         logger.info('Fetching devices from {}'.format(url))
         data = self.fetcher(url)
         return data
@@ -197,6 +203,12 @@ class REST(object):
     def get_sites(self):
         url = self.base_url + '/dcim/sites/'
         logger.info('Fetching rooms from {}'.format(url))
+        data = self.fetcher(url)
+        return data
+
+    def check_rack(self, loc, rack):
+        url = self.base_url + '/dcim/racks/?name=' + rack + '&location=' + loc
+        logger.info('Checking rack from {}'.format(url))
         data = self.fetcher(url)
         return data
 
@@ -810,8 +822,22 @@ class DB(object):
             rcomment, rrack_id, rrack_name, rrow_name, \
             rlocation_id, rlocation_name, rparent_name = x
 
+            pp.pprint(x)
             name = x[1]
             note = x[-7]
+
+            if rrack_name and rrow_name:
+                slug = (rrow_name.replace('.','_')).replace('/','-')
+                loc_data = json.loads((rest.check_location(slug)))['results']
+                if loc_data:
+                    devicedata.update({'location': loc_data[0]['id']})
+                    devicedata.update({'site': loc_data[0]['site']['id']})
+                    devicedata.update({'position': 1})
+                rack_data = json.loads((rest.check_rack(slug, rrack_name)))['results']
+                if rack_data:
+                    devicedata.update({'rack': rack_data[0]['id']})
+            if rasset:
+                devicedata.update({'asset_tag': rasset})
 
             if 'Operating System' in x:
                 opsys = x[-8]
@@ -829,20 +855,23 @@ class DB(object):
             if 'Server Hardware' in x:
                 hardware = x[-8]
                 if '%GSKIP%' in hardware:
-                    hardware = hardware.replace('%GSKIP%', ' ')
+                    vendor, hardware = hardware.split('%GSKIP%')
                 if '%GPASS%' in hardware:
-                    hardware = hardware.replace('%GPASS%', ' ')
+                    vendor, hardware = hardware.split('%GPASS%')
                 if '\t' in hardware:
                     hardware = hardware.replace('\t', ' ')
 
             if 'HW type' in x:
                 hardware = x[-8]
                 if '%GSKIP%' in hardware:
-                    hardware = hardware.replace('%GSKIP%', ' ')
+                    vendor, hardware = hardware.split('%GSKIP%')
                 if '%GPASS%' in hardware:
-                    hardware = hardware.replace('%GPASS%', ' ')
+                    vendor, hardware = hardware.split('%GPASS%')
                 if '\t' in hardware:
                     hardware = hardware.replace('\t', ' ')
+            if 'OEM S/N 1' in x:
+                sn = x[-8]
+
             if note:
                 note = note.replace('\n', ' ')
                 if '&lt;' in note:
@@ -850,15 +879,18 @@ class DB(object):
                 if '&gt;' in note:
                     note = note.replace('&gt;', '')
 
+        if hardware:
+            hwdata = json.loads(rest.check_hardware(slugify.slugify(hardware)))['results']
+            pp.pprint(hwdata)
+            devicedata.update({'device_type': hwdata[0]['id']})
+
         if name:
             # set device data
             devicedata.update({'name': name})
-            if hardware:
-                devicedata.update({'hardware': hardware[:48]})
-            if opsys:
-                devicedata.update({'os': opsys})
             if note:
                 devicedata.update({'notes': note})
+            if sn:
+                devicedata.update({'serial': sn})
             if dev_id in self.vm_hosts:
                 devicedata.update({'is_it_virtual_host': 'yes'})
             if dev_type == 8:
@@ -886,24 +918,21 @@ class DB(object):
             d42_rack_id = None
             # except VMs
             if dev_type != 1504:
-                if rrack_id:
-                    d42_rack_id = self.rack_id_map[rrack_id]
-
                 # if the device is mounted in RT, we will try to add it to D42 hardwares.
                 floor, height, depth, mount = self.get_hardware_size(dev_id)
                 if floor is not None:
                     floor = int(floor) + 1
                 else:
                     floor = 'auto'
-                if not hardware:
-                    hardware = 'generic' + str(height) + 'U'
-                self.add_hardware(height, depth, hardware)
 
             # upload device
             if devicedata:
-                if hardware and dev_type != 1504:
-                    devicedata.update({'hardware': hardware[:48]})
-
+                # default to development role
+                dev_roles = (json.loads(rest.get_device_roles()))['results']
+                pp.pprint(dev_roles)
+                devicedata.update({'device_role': dev_roles[0]['id']})
+                devicedata.update({'tenant': 1})
+                devicedata.update({'face': 'front'})
                 # set default type for racked devices
                 if 'type' not in devicedata and d42_rack_id and floor:
                     devicedata.update({'type': 'physical'})
@@ -926,7 +955,7 @@ class DB(object):
                                 device_name = self.get_device_by_port(get_links[0])
                                 switchport_data.update({'device': device_name})
                                 switchport_data.update({'remote_device': device_name})
-                                # switchport_data.update({'remote_port': self.get_port_by_id(self.all_ports, get_links[0])})
+                                switchport_data.update({'remote_port': self.get_port_by_id(self.all_ports, get_links[0])})
 
                                 rest.post_switchport(switchport_data)
 
@@ -1329,11 +1358,11 @@ if __name__ == '__main__':
     #racktables.get_racks()
     #racktables.get_hardware()
     #racktables.get_container_map()
-    racktables.get_chassis()
-    racktables.get_vmhosts()
-    racktables.get_device_to_ip()
-    racktables.get_pdus()
-    racktables.get_patch_panels()
+    #racktables.get_chassis()
+    #racktables.get_vmhosts()
+    #racktables.get_device_to_ip()
+    #racktables.get_pdus()
+    #racktables.get_patch_panels()
     racktables.get_devices()
 
     migrator = Migrator()
