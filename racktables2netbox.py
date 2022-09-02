@@ -553,6 +553,12 @@ class DB(object):
                 else:
                     vendor = dtype
                     model = dtype
+                if '|' in model:
+                    model, comment = model.split("|")
+                    model = model.rstrip(' ')
+                    model = model.replace('%GPASS%', ' ')
+                    comment = comment.lstrip(' ')
+                    description = description + comment
                 slug = (vendor.replace('/', '-')).replace(' ','_')
                 if slug == '[[Aten':
                     continue
@@ -575,7 +581,7 @@ class DB(object):
                 if not size:
                     continue
                 floor, height, depth, mount = size
-                slug = model.replace('/', '-')
+                slug = slugify.slugify(model)
                 hw = None
                 try:
                     hw = json.loads((rest.check_hardware(slug)))['results']
@@ -585,7 +591,8 @@ class DB(object):
                     continue
                 hwddata = {}
                 hwddata.update({'comments': description})
-                hwddata.update({'u_height': height})
+                if height:
+                    hwddata.update({'u_height': height})
                 hwddata.update({'model': model})
                 hwddata.update({'slug': slug})
                 hwddata.update({'manufacturer': manuf_data[0]['id']})
