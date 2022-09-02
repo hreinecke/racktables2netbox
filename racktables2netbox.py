@@ -236,6 +236,12 @@ class REST(object):
         data = self.fetcher(url)
         return data
 
+    def check_device(self, dev):
+        url = self.base_url + '/dcim/device-types/?name=' + dev
+        logger.info('Checking device from ()'.format(url))
+        data = self.fetcher(url)
+        return data
+
 class DB(object):
     """
     Fetching data from Racktables and converting them to Device42 API format.
@@ -932,6 +938,13 @@ class DB(object):
 
             # upload device
             if devicedata:
+                data = {}
+                try:
+                    data = rest.check_device(name)
+                except:
+                    pass
+                if data:
+                    continue
                 # default to development role
                 dev_roles = (json.loads(rest.get_device_roles()))['results']
                 pp.pprint(dev_roles)
