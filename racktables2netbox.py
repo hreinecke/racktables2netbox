@@ -559,9 +559,7 @@ class DB(object):
                     model = model.replace('%GPASS%', ' ')
                     comment = comment.lstrip(' ')
                     description = description + comment
-                slug = (vendor.replace('/', '-')).replace(' ','_')
-                if slug == '[[Aten':
-                    continue
+                slug = slugify.slugify(vendor)
                 manuf_data = None
                 try:
                     manuf_data = json.loads((rest.check_manufacturer(slug)))['results']
