@@ -141,6 +141,11 @@ class REST(object):
         logger.info('Posting PDU to rack {}'.format(rack))
         self.uploader(data, url)
 
+    def port_manufacturer(self, data):
+        url = self.base_url + '/dcim/manufacturers/'
+        logger.info('Posting manufacturer data to {}'.format(url))
+        self.uploader(data, url)
+
     def post_hardware(self, data):
         url = self.base_url + '/dcim/device-types/'
         logger.info('Adding hardware data to {}'.format(url))
@@ -203,6 +208,12 @@ class REST(object):
 
     def check_site(self, site):
         url = self.base_url + '/dcim/sites/?slug=' + loc
+        logger.info('Checking site from {}'.format(url))
+        data = self.fetcher(url)
+        return data
+
+    def check_manufacturer(self, site):
+        url = self.base_url + '/dcim/manufacturers/?slug=' + loc
         logger.info('Checking site from {}'.format(url))
         data = self.fetcher(url)
         return data
@@ -513,26 +524,32 @@ class DB(object):
                 msg = ('Hardware', str(data))
                 logger.debug(msg)
 
-            # create map device_id:height
-            # RT does not impose height for devices of the same hardware model so it might happen that -
-            # two or more devices based on same HW model have different size in rack
-            # here we try to find and set smallest U for device
-            hwsize_map = {}
+            # Upload manufacturer list
             for line in data:
-                continue
+                hwddata = {}
                 line = [0 if not x else x for x in line]
                 data_id, description, name, asset, dtype = line
-                size = self.get_hardware_size(data_id)
-                if not size:
-                    continue
-                pp.pprint(size)
-                floor, height, depth, mount = size
-                if data_id not in hwsize_map:
-                    hwsize_map.update({data_id: height})
+
+                if '%GPASS%' in dtype:
+                    vendor, model = dtype.split("%GPASS%")
+                elif len(dtype.split()) > 1:
+                    venmod = dtype.split()
+                    vendor = venmod[0]
+                    model = ' '.join(venmod[1:])
                 else:
-                    h = float(hwsize_map[data_id])
-                    if float(height) < h:
-                        hwsize_map.update({data_id: height})
+                    vendor = dtype
+                    model = dtype
+                manuf_data = None
+                try:
+                    manuf_data = rest.check_manufacturer(vendor)
+                except:
+                    pass
+                if manuf_data:
+                    continue
+                manuf = {}
+                manuf.update({'name': vendor})
+                manuf.update({'slug': vendor})
+                rest.post_manufacturer(manuf)
 
             for line in data:
                 hwddata = {}
@@ -549,17 +566,19 @@ class DB(object):
                     vendor = dtype
                     model = dtype
 
+                manuf_data = json.loads((rest.check_manufacturer(vendor)))['results']
+                if not manuf_data:
+                    pp.pprint('Vendor ' + vendor + ' not found')
+                    continue
                 size = self.get_hardware_size(data_id)
                 if not size:
                     continue
                 floor, height, depth, mount = size
-                # patching height
-                #height = hwsize_map[data_id]
                 hwddata.update({'comments': description})
                 hwddata.update({'u_height': height})
                 hwddata.update({'model': model})
                 hwddata.update({'slug': model.replace('/','-')})
-                hwddata.update({'manufacturer': vendor})
+                hwddata.update({'manufacturer': manuf_data['id']})
                 rest.post_hardware(hwddata)
 
     def get_hardware_size(self, data_id):
