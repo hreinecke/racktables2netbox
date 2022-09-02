@@ -142,7 +142,7 @@ class REST(object):
         self.uploader(data, url)
 
     def post_hardware(self, data):
-        url = self.base_url + '/1.0/hardwares/'
+        url = self.base_url + '/dcim/device-types/'
         logger.info('Adding hardware data to {}'.format(url))
         self.uploader(data, url)
 
@@ -507,21 +507,25 @@ class DB(object):
                     """
             cur.execute(q)
             data = cur.fetchall()
+            cur.close()
 
-        if config['Log']['DEBUG']:
-            msg = ('Hardware', str(data))
-            logger.debug(msg)
+            if config['Log']['DEBUG']:
+                msg = ('Hardware', str(data))
+                logger.debug(msg)
 
-        # create map device_id:height
-        # RT does not impose height for devices of the same hardware model so it might happen that -
-        # two or more devices based on same HW model have different size in rack
-        # here we try to find and set smallest U for device
-        hwsize_map = {}
-        for line in data:
-            line = [0 if not x else x for x in line]
-            data_id, description, name, asset, dtype = line
-            size = self.get_hardware_size(cur, data_id)
-            if size:
+            # create map device_id:height
+            # RT does not impose height for devices of the same hardware model so it might happen that -
+            # two or more devices based on same HW model have different size in rack
+            # here we try to find and set smallest U for device
+            hwsize_map = {}
+            for line in data:
+                continue
+                line = [0 if not x else x for x in line]
+                data_id, description, name, asset, dtype = line
+                size = self.get_hardware_size(data_id)
+                if not size:
+                    continue
+                pp.pprint(size)
                 floor, height, depth, mount = size
                 if data_id not in hwsize_map:
                     hwsize_map.update({data_id: height})
@@ -530,33 +534,33 @@ class DB(object):
                     if float(height) < h:
                         hwsize_map.update({data_id: height})
 
-        for line in data:
-            hwddata = {}
-            line = [0 if not x else x for x in line]
-            data_id, description, name, asset, dtype = line
+            for line in data:
+                hwddata = {}
+                line = [0 if not x else x for x in line]
+                data_id, description, name, asset, dtype = line
 
-            if '%GPASS%' in dtype:
-                vendor, model = dtype.split("%GPASS%")
-            elif len(dtype.split()) > 1:
-                venmod = dtype.split()
-                vendor = venmod[0]
-                model = ' '.join(venmod[1:])
-            else:
-                vendor = dtype
-                model = dtype
+                if '%GPASS%' in dtype:
+                    vendor, model = dtype.split("%GPASS%")
+                elif len(dtype.split()) > 1:
+                    venmod = dtype.split()
+                    vendor = venmod[0]
+                    model = ' '.join(venmod[1:])
+                else:
+                    vendor = dtype
+                    model = dtype
 
-            size = self.get_hardware_size(data_id)
-            if size:
+                size = self.get_hardware_size(data_id)
+                if not size:
+                    continue
                 floor, height, depth, mount = size
                 # patching height
-                height = hwsize_map[data_id]
-                hwddata.update({'notes': description})
-                hwddata.update({'type': 1})
-                hwddata.update({'size': height})
-                hwddata.update({'depth': depth})
-                hwddata.update({'name': model[:48]})
+                #height = hwsize_map[data_id]
+                hwddata.update({'comments': description})
+                hwddata.update({'u_height': height})
+                hwddata.update({'model': model})
+                hwddata.update({'slug': model.replace('/','-')})
                 hwddata.update({'manufacturer': vendor})
-                # rest.post_hardware(hwddata)
+                rest.post_hardware(hwddata)
 
     def get_hardware_size(self, data_id):
         """
@@ -575,7 +579,8 @@ class DB(object):
             cur = self.con.cursor()
             q = """SELECT unit_no,atom FROM RackSpace WHERE object_id = %s""" % data_id
             cur.execute(q)
-        data = cur.fetchall()
+            data = cur.fetchall()
+
         if data != ():
             front = 0
             interior = 0
