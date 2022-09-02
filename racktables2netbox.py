@@ -684,7 +684,7 @@ class DB(object):
             hwddata.update({'depth': depth})
         if name:
             hwddata.update({'name': name[:48]})
-            # rest.post_hardware(hwddata)
+            rest.post_hardware(hwddata)
 
     def get_vmhosts(self):
         if not self.con:
@@ -705,7 +705,7 @@ class DB(object):
             self.vm_hosts.update({host_id: name})
             dev.update({'name': name})
             dev.update({'is_it_virtual_host': 'yes'})
-            # rest.post_device(dev)
+            rest.post_device(dev)
 
     def get_chassis(self):
         if not self.con:
@@ -715,6 +715,7 @@ class DB(object):
             q = """SELECT id, name FROM Object WHERE objtype_id='1502'"""
             cur.execute(q)
             raw = cur.fetchall()
+            cur.close()
 
         dev = {}
         for rec in raw:
@@ -726,7 +727,7 @@ class DB(object):
             self.chassis.update({host_id: name})
             dev.update({'name': name})
             dev.update({'is_it_blade_host': 'yes'})
-            # rest.post_device(dev)
+            rest.post_device(dev)
 
     def get_container_map(self):
         """
@@ -742,6 +743,8 @@ class DB(object):
                     FROM EntityLink WHERE child_entity_type='object' AND parent_entity_type = 'object'"""
             cur.execute(q)
             raw = cur.fetchall()
+            cur.close()
+
         for rec in raw:
             container_id, object_id = rec
             self.container_map.update({object_id: container_id})
@@ -754,10 +757,12 @@ class DB(object):
             q = 'SELECT id FROM Object'
             cur.execute(q)
             idsx = cur.fetchall()
-        ids = [x[0] for x in idsx]
+            cur.close()
 
-        with self.con:
+            ids = [x[0] for x in idsx]
+
             for dev_id in ids:
+                cur = self.con.cursor()
                 q = """Select
                             Object.objtype_id,
                             Object.name as Description,
@@ -785,6 +790,7 @@ class DB(object):
 
                 cur.execute(q)
                 data = cur.fetchall()
+                cur.close()
                 if data:  # RT objects that do not have data are locations, racks, rows etc...
                     self.process_data(data, dev_id)
 
@@ -1321,8 +1327,8 @@ if __name__ == '__main__':
     #racktables.get_ips()
     #racktables.get_locations()
     #racktables.get_racks()
-    racktables.get_hardware()
-    racktables.get_container_map()
+    #racktables.get_hardware()
+    #racktables.get_container_map()
     racktables.get_chassis()
     racktables.get_vmhosts()
     racktables.get_device_to_ip()
