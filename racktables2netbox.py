@@ -783,7 +783,7 @@ class DB(object):
                             Attribute.name as Name,
                             Dictionary.dict_value as Type,
                             Object.comment as Comment,
-                            RackSpace.rack_id as RackID,
+                            RackSpace.atom as rack_pos,
                             Rack.name as rack_name,
                             Rack.row_name,
                             Rack.location_id,
@@ -819,7 +819,7 @@ class DB(object):
 
         for x in data:
             dev_type, rdesc, rname, rasset, rattr_name, rtype, \
-            rcomment, rrack_id, rrack_name, rrow_name, \
+            rcomment, rrack_pos, rrack_name, rrow_name, \
             rlocation_id, rlocation_name, rparent_name = x
 
             pp.pprint(x)
@@ -832,7 +832,7 @@ class DB(object):
                 if loc_data:
                     devicedata.update({'location': loc_data[0]['id']})
                     devicedata.update({'site': loc_data[0]['site']['id']})
-                    devicedata.update({'position': 1})
+                    devicedata.update({'position': rrack_pos})
                 rack_data = json.loads((rest.check_rack(slug, rrack_name)))['results']
                 if rack_data:
                     devicedata.update({'rack': rack_data[0]['id']})
@@ -891,6 +891,10 @@ class DB(object):
                 devicedata.update({'notes': note})
             if sn:
                 devicedata.update({'serial': sn})
+            if opsys:
+                custom = {}
+                custom.update({'os': opsys})
+                devicedata.update({'custom_fields': custom})
             if dev_id in self.vm_hosts:
                 devicedata.update({'is_it_virtual_host': 'yes'})
             if dev_type == 8:
