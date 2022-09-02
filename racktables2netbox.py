@@ -232,12 +232,12 @@ class REST(object):
 
     def check_hardware(self, hw):
         url = self.base_url + '/dcim/device-types/?slug=' + hw
-        logger.info('Checking hardware from ()'.format(url))
+        logger.info('Checking hardware from {}'.format(url))
         data = self.fetcher(url)
         return data
 
     def check_device(self, dev):
-        url = self.base_url + '/dcim/device-types/?name=' + dev
+        url = self.base_url + '/dcim/device-types/?name="' + dev + '"'
         logger.info('Checking device from ()'.format(url))
         data = self.fetcher(url)
         return data
@@ -892,6 +892,13 @@ class DB(object):
             devicedata.update({'device_type': hwdata[0]['id']})
 
         if name:
+            data = {}
+            try:
+                data = rest.check_device(name)
+            except:
+                pass
+            if data:
+                return
             # set device data
             devicedata.update({'name': name})
             if note:
@@ -938,13 +945,6 @@ class DB(object):
 
             # upload device
             if devicedata:
-                data = {}
-                try:
-                    data = rest.check_device(name)
-                except:
-                    pass
-                if data:
-                    continue
                 # default to development role
                 dev_roles = (json.loads(rest.get_device_roles()))['results']
                 pp.pprint(dev_roles)
