@@ -513,8 +513,6 @@ class DB(object):
                     continue
                 pp.pprint(response)
 
-            self.all_ports = self.get_ports()
-
     def get_hardware(self):
         """
         Get hardware from RT and send it to uploader
@@ -765,6 +763,8 @@ class DB(object):
     def get_devices(self):
         self.connect()
         with self.con:
+            self.all_ports = self.get_ports()
+
             cur = self.con.cursor()
             # get object IDs
             q = 'SELECT id FROM Object'
@@ -1357,7 +1357,7 @@ if __name__ == '__main__':
     #racktables.get_subnets()
     #racktables.get_ips()
     #racktables.get_locations()
-    racktables.get_racks()
+    #racktables.get_racks()
     #racktables.get_hardware()
     #racktables.get_container_map()
     #racktables.get_chassis()
