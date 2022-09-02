@@ -219,7 +219,7 @@ class REST(object):
         return data
 
     def check_site(self, site):
-        url = self.base_url + '/dcim/sites/?slug=' + loc
+        url = self.base_url + '/dcim/sites/?slug=' + site
         logger.info('Checking site from {}'.format(url))
         data = self.fetcher(url)
         return data
@@ -373,45 +373,26 @@ class DB(object):
         print("Rooms:")
         pp.pprint(rooms_map)
 
-        print("Locations:")
-        for room, parent in list(rooms_map.items()):
-            if parent in sites_map.values():
-                if room in rooms_map.values():
-                    continue
-
-            rackgroup = {}
-
-            if parent not in sites_map.values():
-                name = parent + "-" + room
-                rackgroup.update({'site': rooms_map[room]})
-            else:
-                name = room
-                rackgroup.update({'site': parent})
-
-            rackgroup.update({'name': name})
-
-            rackgroups.append(rackgroup)
-
         for site_id, site_name in list(sites_map.items()):
-            if site_name not in rooms_map.values():
-                rackgroup = {}
-                rackgroup.update({'site': site_name})
-                rackgroup.update({'name': site_name})
-
-                rackgroups.append(rackgroup)
+            slug = slugify.slugify(site_name)
+            data = {}
+            try:
+                data = rest.check_site(slug)
+            except:
+                pass
+            if data:
+                continue
             sitedata = {}
             sitedata.update({'name': site_name})
-            sitedata.update({'slug': site_name.replace(' ', '_')})
+            sitedata.update({'slug': slug})
             sitedata.update({'Status': 'active'})
-            # rest.post_site(sitedata)
-
-        pp.pprint(rackgroups)
+            rest.post_site(sitedata)
 
         # upload rooms
         for room, parent in list(rooms_map.items()):
             site_map = {}
             try:
-                site_map = (json.loads(check_site(slugify.slugify(parent))))['results']
+                site_map = (json.loads(rest.check_site(slugify.slugify(parent))))['results']
             except:
                 pass
             pp.pprint(site_map)
@@ -421,7 +402,7 @@ class DB(object):
             slug = slugify.slugify(room)
             data = {}
             try:
-                data = rest.check_location(slug)
+                data = (json.loads(rest.check_location(slug)))['results']
             except:
                 pass
             if data:
@@ -1345,8 +1326,8 @@ if __name__ == '__main__':
     racktables = DB()
     #racktables.get_subnets()
     #racktables.get_ips()
-    #racktables.get_locations()
-    racktables.get_racks()
+    racktables.get_locations()
+    #racktables.get_racks()
     #racktables.get_hardware()
     #racktables.get_container_map()
     #racktables.get_chassis()
@@ -1354,7 +1335,7 @@ if __name__ == '__main__':
     #racktables.get_device_to_ip()
     #racktables.get_pdus()
     #racktables.get_patch_panels()
-    racktables.get_devices()
+    #racktables.get_devices()
 
     migrator = Migrator()
 
