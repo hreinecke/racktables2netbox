@@ -408,42 +408,17 @@ class DB(object):
         pp.pprint(rackgroups)
 
         # upload rooms
-        site_map = {}
-        site_list = json.loads((rest.get_sites()))['results']
-        for site in site_list:
-            site_map[site['name']] = site['id']
-        pp.pprint(site_map)
-
-        loc_map = {}
-        loc_list = json.loads((rest.get_locations()))['results']
-        for loc in loc_list:
-            loc_map[loc['name']] = loc['id']
-        pp.pprint('Location map')
-        pp.pprint(loc_map)
         for room, parent in list(rooms_map.items()):
-            if room in loc_map.keys():
-                continue
+            site_map = {}
+            try:
+                site_map = (json.loads(check_site(slugify.slugify(parent))))['results']
+            except:
+                pass
+            pp.pprint(site_map)
             roomdata = {}
-            if parent == 'Nuremberg':
-                parent = 'Nuremberg-Maxtorhof'
-            roomdata.update({'site': site_map[parent]})
+            roomdata.update({'site': site_map[0]['id']})
             roomdata.update({'name': room})
-            if room == 'NUE Lab 2.3.12 (Arch)':
-                slug = 'NUE-LAB-2-3-12'
-            elif room == 'NUE Lab 2.1.35 (NTS)':
-                slug = 'NUE-LAB-2-1-35'
-            elif room == 'NUE Lab 2.2.14 (TAM)':
-                slug = 'NUE-LAB-2-2-14'
-            elif room == 'NUE-Store (Cellar)':
-                slug = 'NUE-CELLAR'
-            elif room == 'NUE Lab 2.3.14 (Workshop)':
-                slug = 'NUE-LAB-WORKSHOP'
-            elif room == 'NUE Office 3.2.29':
-                slug = 'NUE-OFFICE-3-2-29'
-            elif room == 'NUE Lab 1.1.6 (Backup)':
-                slug = 'NUE-LAB-1-1-6'
-            else:
-                slug = room.replace(' ', '_')
+            slug = slugify.slugify(room)
             data = {}
             try:
                 data = rest.check_location(slug)
