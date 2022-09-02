@@ -469,50 +469,51 @@ class DB(object):
             q = """SELECT id, name, height, row_name, location_name from Rack"""
             cur.execute(q)
             raw = cur.fetchall()
+            cur.close()
 
-        for rec in raw:
-            rack_id, rack_name, height, row_name, location_name = rec
+            for rec in raw:
+                rack_id, rack_name, height, row_name, location_name = rec
 
-            rows_map.update({row_name: location_name})
-            loc_data = json.loads((rest.check_location(row_name)))['results']
-            if not loc_data:
-                continue
-            # prepare rack data. We will upload it a little bit later
-            rack = {}
-            rack.update({'name': rack_name})
-            rack.update({'size': height})
-            rack.update({'location': loc_data[0]['id']})
-            rack.update({'site': (loc_data[0]['site'])['id']})
-            racks.append(rack)
+                rows_map.update({row_name: location_name})
+                loc_data = json.loads((rest.check_location(row_name)))['results']
+                if not loc_data:
+                    continue
+                # prepare rack data. We will upload it a little bit later
+                rack = {}
+                rack.update({'name': rack_name})
+                rack.update({'size': height})
+                rack.update({'location': loc_data[0]['id']})
+                rack.update({'site': (loc_data[0]['site'])['id']})
+                racks.append(rack)
 
-        # upload rows as child locations
-        if config['Log']['DEBUG']:
-            msg = ('Rooms', str(rows_map))
-            logger.debug(msg)
-        for room, parent in list(rows_map.items()):
-            slug = (room.replace('.','_')).replace('/','-')
-            loc_data = json.loads((rest.check_location(slug)))['results']
-            if not loc_data:
-                pp.pprint('Location ' + room + ' not found')
-                continue
-            roomdata = {}
-            roomdata.update({'name': room})
-            roomdata.update({'parent': loc_data[0]['id']})
-            roomdata.update({'site': (loc_data[0]['site'])['id']})
-            roomdata.update({'slug': slug})
-            rest.post_location(roomdata)
-        # upload racks
-        if config['Log']['DEBUG']:
-            msg = ('Racks', str(racks))
-            logger.debug(msg)
-        for rack in racks:
-            try:
-                response = rest.post_rack(rack)
-            except:
-                continue
-            pp.pprint(response)
+            # upload rows as child locations
+            if config['Log']['DEBUG']:
+                msg = ('Rooms', str(rows_map))
+                logger.debug(msg)
+            for room, parent in list(rows_map.items()):
+                slug = (room.replace('.','_')).replace('/','-')
+                loc_data = json.loads((rest.check_location(slug)))['results']
+                if not loc_data:
+                    pp.pprint('Location ' + room + ' not found')
+                    continue
+                roomdata = {}
+                roomdata.update({'name': room})
+                roomdata.update({'parent': loc_data[0]['id']})
+                roomdata.update({'site': (loc_data[0]['site'])['id']})
+                roomdata.update({'slug': slug})
+                rest.post_location(roomdata)
+            # upload racks
+            if config['Log']['DEBUG']:
+                msg = ('Racks', str(racks))
+                logger.debug(msg)
+            for rack in racks:
+                try:
+                    response = rest.post_rack(rack)
+                except:
+                    continue
+                pp.pprint(response)
 
-        self.all_ports = self.get_ports()
+            self.all_ports = self.get_ports()
 
     def get_hardware(self):
         """
@@ -1219,11 +1220,8 @@ class DB(object):
             rest.post_patch_panel(payload)
 
     def get_ports(self):
-        if not self.con:
-            self.connect()
-        with self.con:
-            cur = self.con.cursor()
-            q = """SELECT
+        cur = self.con.cursor()
+        q = """SELECT
                     name,
                     label,
                     PortOuterInterface.oif_name,
@@ -1231,9 +1229,9 @@ class DB(object):
                     object_id
                     FROM Port
                     LEFT JOIN PortOuterInterface ON PortOuterInterface.id = type"""
-            cur.execute(q)
+        cur.execute(q)
         data = cur.fetchall()
-
+        cur.close()
         if data:
             return data
         else:
@@ -1359,7 +1357,7 @@ if __name__ == '__main__':
     #racktables.get_subnets()
     #racktables.get_ips()
     #racktables.get_locations()
-    #racktables.get_racks()
+    racktables.get_racks()
     #racktables.get_hardware()
     #racktables.get_container_map()
     #racktables.get_chassis()
