@@ -237,7 +237,7 @@ class REST(object):
         return data
 
     def check_device(self, dev):
-        url = self.base_url + '/dcim/device/?name="' + dev + '"'
+        url = self.base_url + '/dcim/devices/?name="' + dev + '"'
         logger.info('Checking device from {}'.format(url))
         data = self.fetcher(url)
         return data
@@ -769,24 +769,21 @@ class DB(object):
                 logger.info(msg)
                 continue
 
-            data = {}
-            try:
-                data = (json.loads(rest.check_device(name)))['results']
-            except:
-                pass
-            if data:
-                pp.pprint(data)
-                continue
             # set device data
             devicedata.update({'name': name})
 
             if rrack_name and rrow_name:
                 row_slug = slugify.slugify(rrow_name)
                 loc_data = json.loads((rest.check_location(row_slug)))['results']
+                if not loc_data:
+                    loc_data = json.loads((rest.check_location('nue-unknown-location')))['results']
                 devicedata.update({'location': loc_data[0]['id']})
                 devicedata.update({'site': (loc_data[0]['site'])['id']})
-                rack_data = json.loads((rest.check_rack(row_slug, rrack_name)))['results']
-                devicedata.update({'rack': rack_data[0]['id']})
+                try:
+                    rack_data = json.loads((rest.check_rack(row_slug, rrack_name)))['results']
+                    devicedata.update({'rack': rack_data[0]['id']})
+                except:
+                    pass
             if rasset:
                 devicedata.update({'asset_tag': rasset})
 
@@ -882,11 +879,7 @@ class DB(object):
             pp.pprint('No data for machine')
             return
 
-        data = {}
-        try:
-            data = (json.loads(rest.check_device(devicedata['name'])))['results']
-        except:
-            pass
+        data = json.loads(rest.check_device(devicedata['name']))
         if data:
             pp.pprint('Already present')
             return
@@ -1170,7 +1163,7 @@ class DB(object):
         with self.con:
             #self.get_locations()
             #self.get_racks()
-            self.get_hardware()
+            #self.get_hardware()
             self.get_devices()
 
     @staticmethod
