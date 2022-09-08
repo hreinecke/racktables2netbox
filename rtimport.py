@@ -719,7 +719,7 @@ class DB(object):
                     Attribute.name as Name,
                     Dictionary.dict_value as Type,
                     Object.comment as Comment,
-                    RackSpace.atom as rack_pos,
+                    RackSpace.unit_no as rack_pos,
                     Rack.name as rack_name,
                     Rack.row_name,
                     Rack.location_id,
@@ -783,6 +783,8 @@ class DB(object):
                     devicedata.update({'rack': rack_data[0]['id']})
                 except:
                     pass
+            if rrack_pos:
+                devicedata.update({'position': rrack_pos})
             if rasset:
                 devicedata.update({'asset_tag': rasset})
 
@@ -839,43 +841,6 @@ class DB(object):
                 if hwdata:
                     devicedata.update({'device_type': hwdata[0]['id']})
 
-            if dev_id in self.vm_hosts:
-                devicedata.update({'is_it_virtual_host': 'yes'})
-            if dev_type == 8:
-                devicedata.update({'is_it_switch': 'yes'})
-            elif dev_type == 1502:
-                devicedata.update({'is_it_blade_host': 'yes'})
-            elif dev_type == 4:
-                try:
-                    blade_host_id = self.container_map[dev_id]
-                    blade_host_name = self.chassis[blade_host_id]
-                    devicedata.update({'type': 'blade'})
-                    devicedata.update({'blade_host': blade_host_name})
-                except KeyError:
-                    pass
-            elif dev_type == 1504:
-                devicedata.update({'type': 'virtual'})
-                devicedata.pop('hardware', None)
-                try:
-                    vm_host_id = self.container_map[dev_id]
-                    vm_host_name = self.vm_hosts[vm_host_id]
-                    devicedata.update({'virtual_host': vm_host_name})
-                except KeyError:
-                    pass
-            else:
-                pp.pprint('Unhandled device type')
-                return
-
-            d42_rack_id = None
-            # except VMs
-            if dev_type != 1504:
-                # if the device is mounted in RT, we will try to add it to D42 hardwares.
-                floor, height, depth, mount = self.get_hardware_size(dev_id)
-                if floor is not None:
-                    floor = int(floor) + 1
-                else:
-                    floor = 'auto'
-
         # upload device
         if not devicedata:
             pp.pprint('No data for machine')
@@ -902,7 +867,6 @@ class DB(object):
 
         # default to development role
         dev_roles = (json.loads(rest.get_device_roles()))['results']
-        pp.pprint(dev_roles)
         devicedata.update({'device_role': dev_roles[0]['id']})
         devicedata.update({'tenant': 1})
         devicedata.update({'face': 'front'})
@@ -914,25 +878,6 @@ class DB(object):
         pp.pprint(devicedata)
 
         rest.post_device(devicedata)
-        # if there is a device, we can try to mount it to the rack
-        if dev_type != 1504 and d42_rack_id and floor:  # rack_id is D42 rack id
-            device2rack.update({'device': name})
-            if hardware:
-                device2rack.update({'hw_model': hardware[:48]})
-                device2rack.update({'rack_id': d42_rack_id})
-                device2rack.update({'start_at': floor})
-
-            rest.post_device2rack(device2rack)
-        else:
-            if dev_type != 1504 and d42_rack_id is not None:
-                msg = '\n-----------------------------------------------------------------------\
-                \n[!] INFO: Cannot mount device "%s" (RT id = %d) to the rack.\
-                \n\tFloor returned from "get_hardware_size" function was: %s' % (name, dev_id, str(floor))
-                logger.info(msg)
-            else:
-                msg = '\n-----------------------------------------------------------------------\
-                \n[!] INFO: Device %s (RT id = %d) cannot be uploaded. Data was: %s' % (name, dev_id, str(devicedata))
-                logger.info(msg)
 
     def get_device_to_ip(self):
         if not self.con:
