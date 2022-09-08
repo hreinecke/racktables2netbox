@@ -88,7 +88,7 @@ class REST(object):
         prepared_request = self.s.prepare_request(request)
         r = self.s.send(prepared_request)
 
-        logger.debug(f'HTTP Response: {r.status_code} - {r.reason}')
+        logger.debug(f'HTTP Response: {r.status_code} - {r.reason} - {r.text}')
         r.raise_for_status()
 
         return r.text
@@ -441,7 +441,7 @@ class DB(object):
                 row_data = (json.loads(rest.check_location(row_slug)))['results']
 
             rack_data = {}
-            rack_data = (json.loads(rest.check_rack(slug, rack_name)))['results']
+            rack_data = (json.loads(rest.check_rack(row_slug, rack_name)))['results']
             if rack_data:
                 continue
             # upload rack
@@ -767,7 +767,6 @@ class DB(object):
                 logger.info(msg)
                 continue
 
-            pp.pprint(f'dev_id {dev_id} dev_type {dev_type}')
             # set device data
             devicedata.update({'name': name})
 
@@ -778,11 +777,11 @@ class DB(object):
                     loc_data = json.loads((rest.check_location('nue-unknown-location')))['results']
                 devicedata.update({'location': loc_data[0]['id']})
                 devicedata.update({'site': (loc_data[0]['site'])['id']})
-                try:
-                    rack_data = json.loads((rest.check_rack(row_slug, rrack_name)))['results']
+                rack_data = json.loads((rest.check_rack(row_slug, rrack_name)))['results']
+                if rack_data:
                     devicedata.update({'rack': rack_data[0]['id']})
-                except:
-                    pass
+                else:
+                    devicedata.update({'rack': 0})
             if 'position' not in devicedata and rrack_pos:
                 devicedata.update({'position': rrack_pos})
             if rasset:
