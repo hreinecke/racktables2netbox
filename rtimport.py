@@ -238,7 +238,7 @@ class REST(object):
 
     def check_device(self, dev):
         url = self.base_url + '/dcim/device-types/?name="' + dev + '"'
-        logger.info('Checking device from ()'.format(url))
+        logger.info('Checking device from {}'.format(url))
         data = self.fetcher(url)
         return data
 
@@ -761,10 +761,27 @@ class DB(object):
             name = x[1]
             note = x[-7]
 
+            if not name:
+                # device has no name thus it cannot be migrated
+                msg = '\n-----------------------------------------------------------------------\
+                \n[!] INFO: Device with RT id=%d cannot be migrated because it has no name.' % dev_id
+                logger.info(msg)
+                continue
+
+            data = {}
+            try:
+                data = rest.check_device(name)
+            except:
+                pass
+            if data:
+                continue
+            # set device data
+            devicedata.update({'name': name})
+
             if rrack_name and rrow_name:
                 row_slug = slugify.slugify(rrow_name)
                 loc_data = json.loads((rest.check_location(row_slug)))['results']
-                rack_data = json.loads((rest.check_rack(slug, rrack_name)))['results']
+                rack_data = json.loads((rest.check_rack(row_slug, rrack_name)))['results']
                 devicedata.update({'rack': rack_data[0]['id']})
             if rasset:
                 devicedata.update({'asset_tag': rasset})
@@ -781,6 +798,10 @@ class DB(object):
                     opsys = opsys.replace('%GSKIP%', ' ')
                 if '%GPASS%' in opsys:
                     opsys = opsys.replace('%GPASS%', ' ')
+            if opsys:
+                custom = {}
+                custom.update({'os': opsys})
+                devicedata.update({'custom_fields': custom})
 
             if 'Server Hardware' in x:
                 hardware = x[-8]
@@ -801,6 +822,7 @@ class DB(object):
                     hardware = hardware.replace('\t', ' ')
             if 'OEM S/N 1' in x:
                 sn = x[-8]
+                devicedata.update({'serial': sn})
 
             if note:
                 note = note.replace('\n', ' ')
@@ -808,6 +830,7 @@ class DB(object):
                     note = note.replace('&lt;', '')
                 if '&gt;' in note:
                     note = note.replace('&gt;', '')
+                devicedata.update({'notes': note})
 
             if hardware:
                 hwdata = json.loads(rest.check_hardware(slugify.slugify(hardware)))['results']
@@ -815,30 +838,6 @@ class DB(object):
                 if hwdata:
                     devicedata.update({'device_type': hwdata[0]['id']})
 
-            if not name:
-                # device has no name thus it cannot be migrated
-                msg = '\n-----------------------------------------------------------------------\
-                \n[!] INFO: Device with RT id=%d cannot be migrated because it has no name.' % dev_id
-                logger.info(msg)
-                continue
-
-            data = {}
-            try:
-                data = rest.check_device(name)
-            except:
-                pass
-            if data:
-                continue
-            # set device data
-            devicedata.update({'name': name})
-            if note:
-                devicedata.update({'notes': note})
-            if sn:
-                devicedata.update({'serial': sn})
-            if opsys:
-                custom = {}
-                custom.update({'os': opsys})
-                devicedata.update({'custom_fields': custom})
             if dev_id in self.vm_hosts:
                 devicedata.update({'is_it_virtual_host': 'yes'})
             if dev_type == 8:
