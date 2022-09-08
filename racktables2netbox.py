@@ -802,13 +802,16 @@ class DB(object):
             note = x[-7]
 
             if rrack_name and rrow_name:
-                slug = (rrow_name.replace('.','_')).replace('/','-')
+                slug = slugify.slugify(rrow_name)
                 loc_data = json.loads((rest.check_location(slug)))['results']
                 if loc_data:
                     devicedata.update({'location': loc_data[0]['id']})
                     devicedata.update({'site': loc_data[0]['site']['id']})
                     devicedata.update({'position': rrack_pos})
-                rack_data = json.loads((rest.check_rack(slug, rrack_name)))['results']
+                try:
+                    rack_data = json.loads((rest.check_rack(slug, rrack_name)))['results']
+                except:
+                    rack_data = {}
                 if rack_data:
                     devicedata.update({'rack': rack_data[0]['id']})
             if rasset:
@@ -1339,7 +1342,7 @@ if __name__ == '__main__':
     #racktables.get_subnets()
     #racktables.get_ips()
     #racktables.get_locations()
-    racktables.get_racks()
+    #racktables.get_racks()
     #racktables.get_hardware()
     #racktables.get_container_map()
     #racktables.get_chassis()
@@ -1347,7 +1350,7 @@ if __name__ == '__main__':
     #racktables.get_device_to_ip()
     #racktables.get_pdus()
     #racktables.get_patch_panels()
-    #racktables.get_devices()
+    racktables.get_devices()
 
     migrator = Migrator()
 
