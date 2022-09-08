@@ -369,12 +369,11 @@ class DB(object):
 
         # upload sites
         for site_id, site_name in list(sites_map.items()):
+            if site_name == 'Pleasant Grove':
+                rooms_map.update({site_name: 'Provo'})
+                continue
             slug = slugify.slugify(site_name)
-            data = {}
-            try:
-                data = rest.check_site(slug)
-            except:
-                pass
+            data = rest.check_site(slug)
             if data:
                 continue
             sitedata = {}
@@ -385,21 +384,15 @@ class DB(object):
 
         # upload rooms
         for room, parent in list(rooms_map.items()):
-            site_map = {}
-            try:
-                site_map = (json.loads(rest.check_site(slugify.slugify(parent))))['results']
-            except:
-                pass
-            pp.pprint(site_map)
+            site_data = (json.loads(rest.check_site(slugify.slugify(parent))))['results']
+            if not site_data:
+                raise
+            pp.pprint(site_data)
             roomdata = {}
-            roomdata.update({'site': site_map[0]['id']})
+            roomdata.update({'site': site_data[0]['id']})
             roomdata.update({'name': room})
             slug = slugify.slugify(room)
-            data = {}
-            try:
-                data = (json.loads(rest.check_location(slug)))['results']
-            except:
-                pass
+            data = (json.loads(rest.check_location(slug)))['results']
             if data:
                 continue
             roomdata.update({'slug': slug})
@@ -420,7 +413,11 @@ class DB(object):
         cur.close()
 
         for rec in raw:
+            pp.pprint(rec)
             rack_id, rack_name, height, row_name, location_name = rec
+
+            if location_name == 'Nuremberg':
+                location_name = 'NUE Office'
 
             loc_slug = slugify.slugify(location_name)
             loc_data = json.loads((rest.check_location(loc_slug)))['results']
@@ -428,16 +425,15 @@ class DB(object):
                 pp.pprint('Location ' + location_name + ' not found')
                 continue
             row_slug = slugify.slugify(row_name)
-            try:
-                row_data = (json.loads(rest.check_location(row_slug)))['results']
-            except:
+            row_data = (json.loads(rest.check_location(row_slug)))['results']
+            if not row_data:
                 # upload row
                 row_data = {}
                 row_data.update({'name': row_name})
                 row_data.update({'parent': loc_data[0]['id']})
                 row_data.update({'site': (loc_data[0]['site'])['id']})
                 row_data.update({'slug': row_slug})
-                rest.post_location(rowdata)
+                rest.post_location(row_data)
                 row_data = (json.loads(rest.check_location(row_slug)))['results']
 
             rack_data = {}
@@ -1120,10 +1116,10 @@ class DB(object):
             self.connect()
 
         with self.con:
-            #self.get_locations()
-            #self.get_racks()
+            self.get_locations()
+            self.get_racks()
             #self.get_hardware()
-            self.get_devices()
+            #self.get_devices()
 
     @staticmethod
     def get_ports_by_device(ports, device_id):
