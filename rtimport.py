@@ -382,6 +382,7 @@ class DB(object):
             sitedata.update({'Status': 'active'})
             rest.post_site(sitedata)
 
+        rooms_map.update({'PRG-3.40': 'Prague'})
         # upload rooms
         for room, parent in list(rooms_map.items()):
             site_data = (json.loads(rest.check_site(slugify.slugify(parent))))['results']
@@ -418,7 +419,8 @@ class DB(object):
 
             if location_name == 'Nuremberg':
                 location_name = 'NUE Office'
-
+            if row_name == 'PRG-3.40-STORAGE':
+                location_name = 'PRG-3.40'
             loc_slug = slugify.slugify(location_name)
             loc_data = json.loads((rest.check_location(loc_slug)))['results']
             if not loc_data:
