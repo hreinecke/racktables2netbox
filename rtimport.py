@@ -771,7 +771,7 @@ class DB(object):
             # set device data
             devicedata.update({'name': name})
 
-            if rrack_name and rrow_name:
+            if 'location' not in devicedata and rrow_name:
                 row_slug = slugify.slugify(rrow_name)
                 loc_data = json.loads((rest.check_location(row_slug)))['results']
                 if not loc_data:
@@ -783,7 +783,7 @@ class DB(object):
                     devicedata.update({'rack': rack_data[0]['id']})
                 except:
                     pass
-            if rrack_pos:
+            if 'position' not in devicedata and rrack_pos:
                 devicedata.update({'position': rrack_pos})
             if rasset:
                 devicedata.update({'asset_tag': rasset})
@@ -835,7 +835,7 @@ class DB(object):
                     note = note.replace('&gt;', '')
                 devicedata.update({'notes': note})
 
-            if hardware:
+            if 'device_type' not in devicedata and hardware:
                 hwdata = json.loads(rest.check_hardware(slugify.slugify(hardware)))['results']
                 pp.pprint(hwdata)
                 if hwdata:
