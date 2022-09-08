@@ -752,6 +752,7 @@ class DB(object):
         floor = None
         dev_type = 0
 
+        pp.pprint('Processing device id ' + dev_id)
         for x in data:
             dev_type, rdesc, rname, rasset, rattr_name, rtype, \
             rcomment, rrack_pos, rrack_name, rrow_name, \
@@ -875,7 +876,7 @@ class DB(object):
         # upload device
         if not devicedata:
             pp.pprint('No data for machine')
-            continue
+            return
 
         # default to development role
         dev_roles = (json.loads(rest.get_device_roles()))['results']
@@ -886,6 +887,9 @@ class DB(object):
         # set default type for racked devices
         if 'type' not in devicedata and d42_rack_id and floor:
             devicedata.update({'type': 'physical'})
+
+        pp.pprint('Uploading device')
+        pp.pprint(devicedata)
 
         rest.post_device(devicedata)
         # if there is a device, we can try to mount it to the rack
