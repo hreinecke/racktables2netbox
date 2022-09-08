@@ -762,18 +762,10 @@ class DB(object):
             note = x[-7]
 
             if rrack_name and rrow_name:
-                slug = slugify.slugify(rrow_name)
-                loc_data = json.loads((rest.check_location(slug)))['results']
-                if loc_data:
-                    devicedata.update({'location': loc_data[0]['id']})
-                    devicedata.update({'site': loc_data[0]['site']['id']})
-                    devicedata.update({'position': rrack_pos})
-                try:
-                    rack_data = json.loads((rest.check_rack(slug, rrack_name)))['results']
-                except:
-                    rack_data = {}
-                if rack_data:
-                    devicedata.update({'rack': rack_data[0]['id']})
+                row_slug = slugify.slugify(rrow_name)
+                loc_data = json.loads((rest.check_location(row_slug)))['results']
+                rack_data = json.loads((rest.check_rack(slug, rrack_name)))['results']
+                devicedata.update({'rack': rack_data[0]['id']})
             if rasset:
                 devicedata.update({'asset_tag': rasset})
 
@@ -817,20 +809,26 @@ class DB(object):
                 if '&gt;' in note:
                     note = note.replace('&gt;', '')
 
-        if hardware:
-            hwdata = json.loads(rest.check_hardware(slugify.slugify(hardware)))['results']
-            pp.pprint(hwdata)
-            if hwdata:
-                devicedata.update({'device_type': hwdata[0]['id']})
+            if hardware:
+                hwdata = json.loads(rest.check_hardware(slugify.slugify(hardware)))['results']
+                pp.pprint(hwdata)
+                if hwdata:
+                    devicedata.update({'device_type': hwdata[0]['id']})
 
-        if name:
+            if not name:
+                # device has no name thus it cannot be migrated
+                msg = '\n-----------------------------------------------------------------------\
+                \n[!] INFO: Device with RT id=%d cannot be migrated because it has no name.' % dev_id
+                logger.info(msg)
+                continue
+
             data = {}
             try:
                 data = rest.check_device(name)
             except:
                 pass
             if data:
-                return
+                continue
             # set device data
             devicedata.update({'name': name})
             if note:
@@ -876,79 +874,40 @@ class DB(object):
                     floor = 'auto'
 
             # upload device
-            if devicedata:
-                # default to development role
-                dev_roles = (json.loads(rest.get_device_roles()))['results']
-                pp.pprint(dev_roles)
-                devicedata.update({'device_role': dev_roles[0]['id']})
-                devicedata.update({'tenant': 1})
-                devicedata.update({'face': 'front'})
-                # set default type for racked devices
-                if 'type' not in devicedata and d42_rack_id and floor:
-                    devicedata.update({'type': 'physical'})
+            if not devicedata:
+                pp.pprint('No data for machine')
+                continue
 
-                rest.post_device(devicedata)
+            # default to development role
+            dev_roles = (json.loads(rest.get_device_roles()))['results']
+            pp.pprint(dev_roles)
+            devicedata.update({'device_role': dev_roles[0]['id']})
+            devicedata.update({'tenant': 1})
+            devicedata.update({'face': 'front'})
+            # set default type for racked devices
+            if 'type' not in devicedata and d42_rack_id and floor:
+                devicedata.update({'type': 'physical'})
 
-                # update ports
-                if dev_type == 8 or dev_type == 4 or dev_type == 445 or dev_type == 1055:
-                    ports = self.get_ports_by_device(self.all_ports, dev_id)
-                    if ports:
-                        for item in ports:
-                            switchport_data = {
-                                'port': item[0],
-                                'switch': name,
-                                'label': item[1]
-                            }
-
-                            get_links = self.get_links(item[3])
-                            if get_links:
-                                device_name = self.get_device_by_port(get_links[0])
-                                switchport_data.update({'device': device_name})
-                                switchport_data.update({'remote_device': device_name})
-                                switchport_data.update({'remote_port': self.get_port_by_id(self.all_ports, get_links[0])})
-
-                                rest.post_switchport(switchport_data)
-
-                                # reverse connection
-                                device_name = self.get_device_by_port(get_links[0])
-                                switchport_data = {
-                                    'port': self.get_port_by_id(self.all_ports, get_links[0]),
-                                    'switch': device_name
-                                }
-
-                                switchport_data.update({'device': name})
-                                switchport_data.update({'remote_device': name})
-                                switchport_data.update({'remote_port': item[0]})
-
-                                rest.post_switchport(switchport_data)
-                            else:
-                                rest.post_switchport(switchport_data)
-
-                # if there is a device, we can try to mount it to the rack
-                if dev_type != 1504 and d42_rack_id and floor:  # rack_id is D42 rack id
-                    device2rack.update({'device': name})
-                    if hardware:
-                        device2rack.update({'hw_model': hardware[:48]})
+            rest.post_device(devicedata)
+            # if there is a device, we can try to mount it to the rack
+            if dev_type != 1504 and d42_rack_id and floor:  # rack_id is D42 rack id
+                device2rack.update({'device': name})
+                if hardware:
+                    device2rack.update({'hw_model': hardware[:48]})
                     device2rack.update({'rack_id': d42_rack_id})
                     device2rack.update({'start_at': floor})
 
-                    rest.post_device2rack(device2rack)
-                else:
-                    if dev_type != 1504 and d42_rack_id is not None:
-                        msg = '\n-----------------------------------------------------------------------\
+                rest.post_device2rack(device2rack)
+            else:
+                if dev_type != 1504 and d42_rack_id is not None:
+                    msg = '\n-----------------------------------------------------------------------\
                         \n[!] INFO: Cannot mount device "%s" (RT id = %d) to the rack.\
                         \n\tFloor returned from "get_hardware_size" function was: %s' % (name, dev_id, str(floor))
-                        logger.info(msg)
-            else:
-                msg = '\n-----------------------------------------------------------------------\
+                    logger.info(msg)
+                else:
+                    msg = '\n-----------------------------------------------------------------------\
                 \n[!] INFO: Device %s (RT id = %d) cannot be uploaded. Data was: %s' % (name, dev_id, str(devicedata))
-                logger.info(msg)
-
-        else:
-            # device has no name thus it cannot be migrated
-            msg = '\n-----------------------------------------------------------------------\
-            \n[!] INFO: Device with RT id=%d cannot be migrated because it has no name.' % dev_id
-            logger.info(msg)
+                    logger.info(msg)
 
     def get_device_to_ip(self):
         if not self.con:
