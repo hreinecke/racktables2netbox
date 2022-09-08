@@ -783,6 +783,8 @@ class DB(object):
             if rrack_name and rrow_name:
                 row_slug = slugify.slugify(rrow_name)
                 loc_data = json.loads((rest.check_location(row_slug)))['results']
+                devicedata.update({'location': loc_data[0]['id']})
+                devicedata.update({'site': (loc_data[0]['site'])['id']})
                 rack_data = json.loads((rest.check_rack(row_slug, rrack_name)))['results']
                 devicedata.update({'rack': rack_data[0]['id']})
             if rasset:
@@ -824,7 +826,8 @@ class DB(object):
                     hardware = hardware.replace('\t', ' ')
             if 'OEM S/N 1' in x:
                 sn = x[-8]
-                devicedata.update({'serial': sn})
+                if sn:
+                    devicedata.update({'serial': sn})
 
             if note:
                 note = note.replace('\n', ' ')
