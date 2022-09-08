@@ -74,7 +74,7 @@ class REST(object):
         request = requests.Request(method, url, data = json.dumps(data))
         prepared_request = self.s.prepare_request(request)
         r = self.s.send(prepared_request)
-        logger.debug(f"HTTP Response: {r.status_code!s} - {r.reason}")
+        logger.debug(f"HTTP Response: {r.status_code!s} - {r.reason} - {r.text}")
         r.raise_for_status()
 
         return r.json()
@@ -870,9 +870,6 @@ class DB(object):
         devicedata.update({'device_role': dev_roles[0]['id']})
         devicedata.update({'tenant': 1})
         devicedata.update({'face': 'front'})
-        # set default type for racked devices
-        if 'type' not in devicedata and d42_rack_id and floor:
-            devicedata.update({'type': 'physical'})
 
         pp.pprint('Uploading device')
         pp.pprint(devicedata)
