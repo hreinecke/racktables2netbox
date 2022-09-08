@@ -698,51 +698,48 @@ class DB(object):
             self.container_map.update({object_id: container_id})
 
     def get_devices(self):
-        self.connect()
-        with self.con:
-            self.all_ports = self.get_ports()
+        self.all_ports = self.get_ports()
 
+        cur = self.con.cursor()
+        # get object IDs
+        q = 'SELECT id FROM Object'
+        cur.execute(q)
+        idsx = cur.fetchall()
+        cur.close()
+
+        ids = [x[0] for x in idsx]
+
+        for dev_id in ids:
             cur = self.con.cursor()
-            # get object IDs
-            q = 'SELECT id FROM Object'
+            q = """Select
+                    Object.objtype_id,
+                    Object.name as Description,
+                    Object.label as Name,
+                    Object.asset_no as Asset,
+                    Attribute.name as Name,
+                    Dictionary.dict_value as Type,
+                    Object.comment as Comment,
+                    RackSpace.atom as rack_pos,
+                    Rack.name as rack_name,
+                    Rack.row_name,
+                    Rack.location_id,
+                    Rack.location_name,
+                    Location.parent_name
+                    FROM Object
+                    LEFT JOIN AttributeValue ON Object.id = AttributeValue.object_id
+                    LEFT JOIN Attribute ON AttributeValue.attr_id = Attribute.id
+                    LEFT JOIN RackSpace ON Object.id = RackSpace.object_id
+                    LEFT JOIN Dictionary ON Dictionary.dict_key = AttributeValue.uint_value
+                    LEFT JOIN Rack ON RackSpace.rack_id = Rack.id
+                    LEFT JOIN Location ON Rack.location_id = Location.id
+                    WHERE Object.id = %s
+                    AND Object.objtype_id not in (2,9,1505,1560,1561,1562,50275)""" % dev_id
+
             cur.execute(q)
-            idsx = cur.fetchall()
+            data = cur.fetchall()
             cur.close()
-
-            ids = [x[0] for x in idsx]
-
-            for dev_id in ids:
-                cur = self.con.cursor()
-                q = """Select
-                            Object.objtype_id,
-                            Object.name as Description,
-                            Object.label as Name,
-                            Object.asset_no as Asset,
-                            Attribute.name as Name,
-                            Dictionary.dict_value as Type,
-                            Object.comment as Comment,
-                            RackSpace.atom as rack_pos,
-                            Rack.name as rack_name,
-                            Rack.row_name,
-                            Rack.location_id,
-                            Rack.location_name,
-                            Location.parent_name
-
-                            FROM Object
-                            LEFT JOIN AttributeValue ON Object.id = AttributeValue.object_id
-                            LEFT JOIN Attribute ON AttributeValue.attr_id = Attribute.id
-                            LEFT JOIN RackSpace ON Object.id = RackSpace.object_id
-                            LEFT JOIN Dictionary ON Dictionary.dict_key = AttributeValue.uint_value
-                            LEFT JOIN Rack ON RackSpace.rack_id = Rack.id
-                            LEFT JOIN Location ON Rack.location_id = Location.id
-                            WHERE Object.id = %s
-                            AND Object.objtype_id not in (2,9,1505,1560,1561,1562,50275)""" % dev_id
-
-                cur.execute(q)
-                data = cur.fetchall()
-                cur.close()
-                if data:  # RT objects that do not have data are locations, racks, rows etc...
-                    self.process_data(data, dev_id)
+            if data:  # RT objects that do not have data are locations, racks, rows etc...
+                self.process_data(data, dev_id)
 
     def process_data(self, data, dev_id):
         devicedata = {}
