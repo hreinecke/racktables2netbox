@@ -840,6 +840,10 @@ class DB(object):
                 pp.pprint(hwdata)
                 if hwdata:
                     devicedata.update({'device_type': hwdata[0]['id']})
+                    # Racktables rack position starts at the highest value
+                    if 'position' in devicedata:
+                        position = devicedata.pop('position', None)
+                        devicedata.update({'position': position - hwdata[0]['u_height']
 
         # upload device
         if not devicedata:
