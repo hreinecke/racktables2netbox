@@ -882,7 +882,16 @@ class DB(object):
             pp.pprint('No data for machine')
             return
 
-        if location not in devicedata:
+        data = {}
+        try:
+            data = (json.loads(rest.check_device(devicedata['name'])))['results']
+        except:
+            pass
+        if data:
+            pp.pprint('Already present')
+            return
+
+        if 'location' not in devicedata:
             pp.pprint('Using unknown locations')
             loc_data = json.loads((rest.check_location('nue-unknown-location')))['results']
             devicedata.update({'location': loc_data[0]['id']})
