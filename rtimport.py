@@ -872,41 +872,41 @@ class DB(object):
                 else:
                     floor = 'auto'
 
-            # upload device
-            if not devicedata:
-                pp.pprint('No data for machine')
-                continue
+        # upload device
+        if not devicedata:
+            pp.pprint('No data for machine')
+            continue
 
-            # default to development role
-            dev_roles = (json.loads(rest.get_device_roles()))['results']
-            pp.pprint(dev_roles)
-            devicedata.update({'device_role': dev_roles[0]['id']})
-            devicedata.update({'tenant': 1})
-            devicedata.update({'face': 'front'})
-            # set default type for racked devices
-            if 'type' not in devicedata and d42_rack_id and floor:
-                devicedata.update({'type': 'physical'})
+        # default to development role
+        dev_roles = (json.loads(rest.get_device_roles()))['results']
+        pp.pprint(dev_roles)
+        devicedata.update({'device_role': dev_roles[0]['id']})
+        devicedata.update({'tenant': 1})
+        devicedata.update({'face': 'front'})
+        # set default type for racked devices
+        if 'type' not in devicedata and d42_rack_id and floor:
+            devicedata.update({'type': 'physical'})
 
-            rest.post_device(devicedata)
-            # if there is a device, we can try to mount it to the rack
-            if dev_type != 1504 and d42_rack_id and floor:  # rack_id is D42 rack id
-                device2rack.update({'device': name})
-                if hardware:
-                    device2rack.update({'hw_model': hardware[:48]})
-                    device2rack.update({'rack_id': d42_rack_id})
-                    device2rack.update({'start_at': floor})
+        rest.post_device(devicedata)
+        # if there is a device, we can try to mount it to the rack
+        if dev_type != 1504 and d42_rack_id and floor:  # rack_id is D42 rack id
+            device2rack.update({'device': name})
+            if hardware:
+                device2rack.update({'hw_model': hardware[:48]})
+                device2rack.update({'rack_id': d42_rack_id})
+                device2rack.update({'start_at': floor})
 
-                rest.post_device2rack(device2rack)
+            rest.post_device2rack(device2rack)
+        else:
+            if dev_type != 1504 and d42_rack_id is not None:
+                msg = '\n-----------------------------------------------------------------------\
+                \n[!] INFO: Cannot mount device "%s" (RT id = %d) to the rack.\
+                \n\tFloor returned from "get_hardware_size" function was: %s' % (name, dev_id, str(floor))
+                logger.info(msg)
             else:
-                if dev_type != 1504 and d42_rack_id is not None:
-                    msg = '\n-----------------------------------------------------------------------\
-                        \n[!] INFO: Cannot mount device "%s" (RT id = %d) to the rack.\
-                        \n\tFloor returned from "get_hardware_size" function was: %s' % (name, dev_id, str(floor))
-                    logger.info(msg)
-                else:
-                    msg = '\n-----------------------------------------------------------------------\
+                msg = '\n-----------------------------------------------------------------------\
                 \n[!] INFO: Device %s (RT id = %d) cannot be uploaded. Data was: %s' % (name, dev_id, str(devicedata))
-                    logger.info(msg)
+                logger.info(msg)
 
     def get_device_to_ip(self):
         if not self.con:
