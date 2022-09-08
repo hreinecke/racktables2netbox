@@ -237,7 +237,7 @@ class REST(object):
         return data
 
     def check_device(self, dev):
-        url = self.base_url + '/dcim/device-types/?name="' + dev + '"'
+        url = self.base_url + '/dcim/device/?name="' + dev + '"'
         logger.info('Checking device from {}'.format(url))
         data = self.fetcher(url)
         return data
@@ -752,7 +752,7 @@ class DB(object):
         floor = None
         dev_type = 0
 
-        pp.pprint('Processing device id ' + dev_id)
+        pp.pprint(dev_id)
         for x in data:
             dev_type, rdesc, rname, rasset, rattr_name, rtype, \
             rcomment, rrack_pos, rrack_name, rrow_name, \
@@ -771,10 +771,11 @@ class DB(object):
 
             data = {}
             try:
-                data = rest.check_device(name)
+                data = (json.loads(rest.check_device(name)))['results']
             except:
                 pass
             if data:
+                pp.pprint(data)
                 continue
             # set device data
             devicedata.update({'name': name})
