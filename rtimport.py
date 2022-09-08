@@ -372,6 +372,9 @@ class DB(object):
             if site_name == 'Pleasant Grove':
                 rooms_map.update({site_name: 'Provo'})
                 continue
+            if site_name == '--PRAGUE B5 Project--':
+                rooms_map.update({site_name: 'Prague'})
+                continue
             slug = slugify.slugify(site_name)
             data = rest.check_site(slug)
             if data:
@@ -383,6 +386,8 @@ class DB(object):
             rest.post_site(sitedata)
 
         rooms_map.update({'PRG-3.40': 'Prague'})
+        rooms_map.update({'jeffm-HO': 'Home-office'})
+        rooms_map.update({'NeuVector Office': 'NeuVector'})
         # upload rooms
         for room, parent in list(rooms_map.items()):
             site_data = (json.loads(rest.check_site(slugify.slugify(parent))))['results']
@@ -421,6 +426,10 @@ class DB(object):
                 location_name = 'NUE Office'
             if row_name == 'PRG-3.40-STORAGE':
                 location_name = 'PRG-3.40'
+            if row_name == 'jeffm' and location_name == 'Home-office':
+                location_name = 'jeffm-HO'
+            if location_name == 'NeuVector':
+                location_name = 'NeuVector Office'
             loc_slug = slugify.slugify(location_name)
             loc_data = json.loads((rest.check_location(loc_slug)))['results']
             if not loc_data:
