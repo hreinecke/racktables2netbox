@@ -177,7 +177,7 @@ class REST(object):
         self.fetcher(url)
 
     def get_racks(self):
-        url = self.base_url + '/1.0/racks/'
+        url = self.base_url + '/dcim/racks/'
         logger.info('Fetching racks from {}'.format(url))
         ata = self.fetcher(url)
         return data
@@ -348,9 +348,6 @@ class DB(object):
         """
         sites_map = {}
         rooms_map = {}
-        rows_map = {}
-        rackgroups = []
-        racks = []
 
         # ============ BUILDINGS AND ROOMS ============
         cur = self.con.cursor()
@@ -414,11 +411,6 @@ class DB(object):
         Get rows and racks from RT, convert them to rooms and send to uploader.
         :return:
         """
-        sites_map = {}
-        rooms_map = {}
-        rows_map = {}
-        rackgroups = []
-        racks = []
 
         # ============ ROWS AND RACKS ============
         cur = self.con.cursor()
@@ -430,55 +422,35 @@ class DB(object):
         for rec in raw:
             rack_id, rack_name, height, row_name, location_name = rec
 
-            rows_map.update({row_name: location_name})
-            slug = slugify.slugify(row_name)
-            loc_data = (json.loads(rest.check_location(slug)))['results']
+            loc_slug = slugify.slugify(location_name)
+            loc_data = json.loads((rest.check_location(loc_slug)))['results']
             if not loc_data:
-                pp.pprint('No location for ' + row_name)
+                pp.pprint('Location ' + location_name + ' not found')
                 continue
+            row_slug = slugify.slugify(row_name)
+            try:
+                row_data = (json.loads(rest.check_location(row_slug)))['results']
+            except:
+                # upload row
+                row_data = {}
+                row_data.update({'name': row_name})
+                row_data.update({'parent': loc_data[0]['id']})
+                row_data.update({'site': (loc_data[0]['site'])['id']})
+                row_data.update({'slug': row_slug})
+                rest.post_location(rowdata)
+                row_data = (json.loads(rest.check_location(row_slug)))['results']
+
             rack_data = {}
             rack_data = (json.loads(rest.check_rack(slug, rack_name)))['results']
             if rack_data:
                 continue
-            # prepare rack data. We will upload it a little bit later
+            # upload rack
             rack = {}
             rack.update({'name': rack_name})
             rack.update({'size': height})
-            rack.update({'location': loc_data[0]['id']})
-            rack.update({'site': (loc_data[0]['site'])['id']})
-            racks.append(rack)
-
-        # upload rows as child locations
-        if config['Log']['DEBUG']:
-            msg = ('Rooms', str(rows_map))
-            logger.debug(msg)
-        for room, parent in list(rows_map.items()):
-            slug = slugify.slugify(parent)
-            loc_data = json.loads((rest.check_location(slug)))['results']
-            if not loc_data:
-                pp.pprint('Location ' + room + ' at ' + parent + ' not found')
-                continue
-            roomdata = {}
-            slug = slugify.slugify(room)
-            try:
-                roomdata = (json.loads(rest.check_location(slug)))['results']
-            except:
-                pass
-            if roomdata:
-                pp.pprint('Room ' + room + ' at site ' + parent + ' already present')
-                continue
-            roomdata = {}
-            roomdata.update({'name': room})
-            roomdata.update({'parent': loc_data[0]['id']})
-            roomdata.update({'site': (loc_data[0]['site'])['id']})
-            roomdata.update({'slug': slugify.slugify(room)})
-            rest.post_location(roomdata)
-        # upload racks
-        if config['Log']['DEBUG']:
-            msg = ('Racks', str(racks))
-            logger.debug(msg)
-        for rack in racks:
-            response = rest.post_rack(rack)
+            rack.update({'location': row_data[0]['id']})
+            rack.update({'site': (row_data[0]['site'])['id']})
+            response = rest.post_rack(rack);
             pp.pprint(response)
 
     def get_hardware(self):
