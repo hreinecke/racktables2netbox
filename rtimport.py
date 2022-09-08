@@ -507,8 +507,8 @@ class DB(object):
                 model = model.replace('%GPASS%', ' ')
                 comment = comment.lstrip(' ')
                 description = description + comment
-                slug = slugify.slugify(vendor)
-                manuf_data = None
+            slug = slugify.slugify(vendor)
+            manuf_data = None
             try:
                 manuf_data = json.loads((rest.check_manufacturer(slug)))['results']
             except:
@@ -1190,8 +1190,8 @@ class DB(object):
             self.connect()
 
         with self.con:
-            self.get_locations()
-            self.get_racks()
+            #self.get_locations()
+            #self.get_racks()
             self.get_hardware()
             self.get_devices()
 
