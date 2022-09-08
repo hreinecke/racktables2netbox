@@ -370,6 +370,7 @@ class DB(object):
         print("Rooms:")
         pp.pprint(rooms_map)
 
+        # upload sites
         for site_id, site_name in list(sites_map.items()):
             slug = slugify.slugify(site_name)
             data = {}
@@ -485,94 +486,91 @@ class DB(object):
         Get hardware from RT and send it to uploader
         :return:
         """
-        if not self.con:
-            self.connect()
-        with self.con:
-            # get hardware items (except PDU's)
-            cur = self.con.cursor()
-            q = """SELECT
-                    Object.id,Object.name as Description, Object.label as Name,
-                    Object.asset_no as Asset,Dictionary.dict_value as Type
-                    FROM Object
-                    LEFT JOIN AttributeValue ON Object.id = AttributeValue.object_id
-                    LEFT JOIN Attribute ON AttributeValue.attr_id = Attribute.id
-                    LEFT JOIN Dictionary ON Dictionary.dict_key = AttributeValue.uint_value
-                    WHERE Attribute.id=2 AND Object.objtype_id != 2
-                    """
-            cur.execute(q)
-            data = cur.fetchall()
-            cur.close()
+        # get hardware items (except PDU's)
+        cur = self.con.cursor()
+        q = """SELECT
+               Object.id,Object.name as Description, Object.label as Name,
+               Object.asset_no as Asset,Dictionary.dict_value as Type
+               FROM Object
+               LEFT JOIN AttributeValue ON Object.id = AttributeValue.object_id
+               LEFT JOIN Attribute ON AttributeValue.attr_id = Attribute.id
+               LEFT JOIN Dictionary ON Dictionary.dict_key = AttributeValue.uint_value
+               WHERE Attribute.id=2 AND Object.objtype_id != 2
+               """
+        cur.execute(q)
+        data = cur.fetchall()
+        cur.close()
 
-            if config['Log']['DEBUG']:
-                msg = ('Hardware', str(data))
-                # logger.debug(msg)
+        if config['Log']['DEBUG']:
+            msg = ('Hardware', str(data))
+            # logger.debug(msg)
 
-            # Upload manufacturer list
-            for line in data:
-                hwddata = {}
-                line = [0 if not x else x for x in line]
-                data_id, description, name, asset, dtype = line
-                pp.pprint(dtype)
-                if '%GPASS%' in dtype:
-                    venmod, model = dtype.split("%GPASS%")
-                    vendor = venmod.lstrip('[ ')
-                elif '%GSKIP%' in dtype:
-                    venmod, model = dtype.split("%GSKIP%")
-                    vendor = venmod.lstrip('[ ')
-                elif dtype == '[[ThinkPadLenovo%XCC-MTM%2U NDA Chassis%L1,2H%]]':
-                    vendor = 'Lenovo'
-                elif '[[' in dtype:
-                    venmod, url = dtype.split("|")
-                    vendor = (venmod.lstrip('[ ')).rstrip(' ')
-                elif len(dtype.split()) > 1:
-                    venmod = dtype.split()
-                    vendor = venmod[0]
-                    model = ' '.join(venmod[1:])
-                else:
-                    vendor = dtype
-                    model = dtype
-                if '|' in model:
-                    model, comment = model.split("|")
-                    model = model.rstrip(' ')
-                    model = model.replace('%GPASS%', ' ')
-                    comment = comment.lstrip(' ')
-                    description = description + comment
+        # Upload manufacturer list
+        for line in data:
+            hwddata = {}
+            line = [0 if not x else x for x in line]
+            data_id, description, name, asset, dtype = line
+            pp.pprint(dtype)
+            if '%GPASS%' in dtype:
+                venmod, model = dtype.split("%GPASS%")
+                vendor = venmod.lstrip('[ ')
+            elif '%GSKIP%' in dtype:
+                venmod, model = dtype.split("%GSKIP%")
+                vendor = venmod.lstrip('[ ')
+            elif dtype == '[[ThinkPadLenovo%XCC-MTM%2U NDA Chassis%L1,2H%]]':
+                vendor = 'Lenovo'
+            elif '[[' in dtype:
+                venmod, url = dtype.split("|")
+                vendor = (venmod.lstrip('[ ')).rstrip(' ')
+            elif len(dtype.split()) > 1:
+                venmod = dtype.split()
+                vendor = venmod[0]
+                model = ' '.join(venmod[1:])
+            else:
+                vendor = dtype
+                model = dtype
+            if '|' in model:
+                model, comment = model.split("|")
+                model = model.rstrip(' ')
+                model = model.replace('%GPASS%', ' ')
+                comment = comment.lstrip(' ')
+                description = description + comment
                 slug = slugify.slugify(vendor)
                 manuf_data = None
-                try:
-                    manuf_data = json.loads((rest.check_manufacturer(slug)))['results']
-                except:
-                    pass
-                if not manuf_data:
-                    manuf = {}
-                    manuf.update({'name': vendor})
-                    manuf.update({'slug': slug})
-                    rest.post_manufacturer(manuf)
-
+            try:
                 manuf_data = json.loads((rest.check_manufacturer(slug)))['results']
-                if not manuf_data:
-                    pp.pprint('Vendor ' + vendor + ' not found')
-                    continue
-                size = self.get_hardware_size(data_id)
-                if not size:
-                    continue
-                floor, height, depth, mount = size
-                slug = slugify.slugify(model)
-                hw = None
-                try:
-                    hw = json.loads((rest.check_hardware(slug)))['results']
-                except:
-                    pass
-                if hw:
-                    continue
-                hwddata = {}
-                hwddata.update({'comments': description})
-                if height:
-                    hwddata.update({'u_height': height})
-                hwddata.update({'model': model})
-                hwddata.update({'slug': slug})
-                hwddata.update({'manufacturer': manuf_data[0]['id']})
-                rest.post_hardware(hwddata)
+            except:
+                pass
+            if not manuf_data:
+                manuf = {}
+                manuf.update({'name': vendor})
+                manuf.update({'slug': slug})
+                rest.post_manufacturer(manuf)
+
+            manuf_data = json.loads((rest.check_manufacturer(slug)))['results']
+            if not manuf_data:
+                pp.pprint('Vendor ' + vendor + ' not found')
+                continue
+            size = self.get_hardware_size(data_id)
+            if not size:
+                continue
+            floor, height, depth, mount = size
+            slug = slugify.slugify(model)
+            hw = None
+            try:
+                hw = json.loads((rest.check_hardware(slug)))['results']
+            except:
+                pass
+            if hw:
+                continue
+            hwddata = {}
+            hwddata.update({'comments': description})
+            if height:
+                hwddata.update({'u_height': height})
+            hwddata.update({'model': model})
+            hwddata.update({'slug': slug})
+            hwddata.update({'manufacturer': manuf_data[0]['id']})
+            rest.post_hardware(hwddata)
 
     def get_hardware_size(self, data_id):
         """
@@ -1222,6 +1220,8 @@ class DB(object):
         with self.con:
             self.get_locations()
             self.get_racks()
+            self.get_hardware()
+            self.get_devices()
 
     @staticmethod
     def get_ports_by_device(ports, device_id):
@@ -1341,14 +1341,12 @@ if __name__ == '__main__':
     rest = REST()    
     racktables = DB()
     racktables.get_data()
-    #racktables.get_hardware()
     #racktables.get_container_map()
     #racktables.get_chassis()
     #racktables.get_vmhosts()
     #racktables.get_device_to_ip()
     #racktables.get_pdus()
     #racktables.get_patch_panels()
-    racktables.get_devices()
 
     migrator = Migrator()
 
