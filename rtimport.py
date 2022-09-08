@@ -851,6 +851,10 @@ class DB(object):
             return
 
         pp.pprint(devicedata)
+        if 'device_type' not in devicedata:
+            pp.pprint('device_type is required')
+            return
+
         data = {}
         try:
             data = json.loads(rest.check_device(devicedata['name']))['results']
