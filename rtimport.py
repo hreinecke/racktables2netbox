@@ -237,7 +237,7 @@ class REST(object):
         return data
 
     def check_device(self, dev):
-        url = self.base_url + '/dcim/devices/?name="' + dev + '"'
+        url = self.base_url + '/dcim/devices/?name=' + dev
         logger.info('Checking device from {}'.format(url))
         data = self.fetcher(url)
         return data
@@ -752,13 +752,11 @@ class DB(object):
         floor = None
         dev_type = 0
 
-        pp.pprint(dev_id)
         for x in data:
             dev_type, rdesc, rname, rasset, rattr_name, rtype, \
             rcomment, rrack_pos, rrack_name, rrow_name, \
             rlocation_id, rlocation_name, rparent_name = x
 
-            pp.pprint(x)
             name = x[1]
             note = x[-7]
 
@@ -769,6 +767,7 @@ class DB(object):
                 logger.info(msg)
                 continue
 
+            pp.pprint(f'dev_id {dev_id} dev_type {dev_type}')
             # set device data
             devicedata.update({'name': name})
 
@@ -863,6 +862,9 @@ class DB(object):
                     devicedata.update({'virtual_host': vm_host_name})
                 except KeyError:
                     pass
+            else:
+                pp.pprint('Unhandled device type')
+                return
 
             d42_rack_id = None
             # except VMs
@@ -879,7 +881,13 @@ class DB(object):
             pp.pprint('No data for machine')
             return
 
-        data = json.loads(rest.check_device(devicedata['name']))
+        pp.pprint(devicedata)
+        data = {}
+        try:
+            data = json.loads(rest.check_device(devicedata['name']))['results']
+            pp.pprint(data)
+        except:
+            pass
         if data:
             pp.pprint('Already present')
             return
@@ -889,6 +897,8 @@ class DB(object):
             loc_data = json.loads((rest.check_location('nue-unknown-location')))['results']
             devicedata.update({'location': loc_data[0]['id']})
             devicedata.update({'site': (loc_data[0]['site'])['id']})
+            rack_data = json.loads((rest.check_rack('nue-unknown-location', '1')))['results']
+            devicedata.update({'rack': rack_data[0]['id']})
 
         # default to development role
         dev_roles = (json.loads(rest.get_device_roles()))['results']
