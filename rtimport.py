@@ -419,70 +419,66 @@ class DB(object):
         rackgroups = []
         racks = []
 
-        if not self.con:
-            self.connect()
-
         # ============ ROWS AND RACKS ============
-        with self.con:
-            cur = self.con.cursor()
-            q = """SELECT id, name, height, row_name, location_name from Rack"""
-            cur.execute(q)
-            raw = cur.fetchall()
-            cur.close()
+        cur = self.con.cursor()
+        q = """SELECT id, name, height, row_name, location_name from Rack"""
+        cur.execute(q)
+        raw = cur.fetchall()
+        cur.close()
 
-            for rec in raw:
-                rack_id, rack_name, height, row_name, location_name = rec
+        for rec in raw:
+            rack_id, rack_name, height, row_name, location_name = rec
 
-                rows_map.update({row_name: location_name})
-                slug = slugify.slugify(row_name)
-                loc_data = (json.loads(rest.check_location(slug)))['results']
-                if not loc_data:
-                    pp.pprint('No location for ' + row_name)
-                    continue
-                rack_data = {}
-                rack_data = (json.loads(rest.check_rack(slug, rack_name)))['results']
-                if rack_data:
-                    continue
-                # prepare rack data. We will upload it a little bit later
-                rack = {}
-                rack.update({'name': rack_name})
-                rack.update({'size': height})
-                rack.update({'location': loc_data[0]['id']})
-                rack.update({'site': (loc_data[0]['site'])['id']})
-                racks.append(rack)
+            rows_map.update({row_name: location_name})
+            slug = slugify.slugify(row_name)
+            loc_data = (json.loads(rest.check_location(slug)))['results']
+            if not loc_data:
+                pp.pprint('No location for ' + row_name)
+                continue
+            rack_data = {}
+            rack_data = (json.loads(rest.check_rack(slug, rack_name)))['results']
+            if rack_data:
+                continue
+            # prepare rack data. We will upload it a little bit later
+            rack = {}
+            rack.update({'name': rack_name})
+            rack.update({'size': height})
+            rack.update({'location': loc_data[0]['id']})
+            rack.update({'site': (loc_data[0]['site'])['id']})
+            racks.append(rack)
 
-            # upload rows as child locations
-            if config['Log']['DEBUG']:
-                msg = ('Rooms', str(rows_map))
-                logger.debug(msg)
-            for room, parent in list(rows_map.items()):
-                slug = slugify.slugify(parent)
-                loc_data = json.loads((rest.check_location(slug)))['results']
-                if not loc_data:
-                    pp.pprint('Location ' + room + ' at ' + parent + ' not found')
-                    continue
-                roomdata = {}
-                slug = slugify.slugify(room)
-                try:
-                    roomdata = (json.loads(rest.check_location(slug)))['results']
-                except:
-                    pass
-                if roomdata:
-                    pp.pprint('Room ' + room + ' at site ' + parent + ' already present')
-                    continue
-                roomdata = {}
-                roomdata.update({'name': room})
-                roomdata.update({'parent': loc_data[0]['id']})
-                roomdata.update({'site': (loc_data[0]['site'])['id']})
-                roomdata.update({'slug': slugify.slugify(room)})
-                rest.post_location(roomdata)
-            # upload racks
-            if config['Log']['DEBUG']:
-                msg = ('Racks', str(racks))
-                logger.debug(msg)
-            for rack in racks:
-                response = rest.post_rack(rack)
-                pp.pprint(response)
+        # upload rows as child locations
+        if config['Log']['DEBUG']:
+            msg = ('Rooms', str(rows_map))
+            logger.debug(msg)
+        for room, parent in list(rows_map.items()):
+            slug = slugify.slugify(parent)
+            loc_data = json.loads((rest.check_location(slug)))['results']
+            if not loc_data:
+                pp.pprint('Location ' + room + ' at ' + parent + ' not found')
+                continue
+            roomdata = {}
+            slug = slugify.slugify(room)
+            try:
+                roomdata = (json.loads(rest.check_location(slug)))['results']
+            except:
+                pass
+            if roomdata:
+                pp.pprint('Room ' + room + ' at site ' + parent + ' already present')
+                continue
+            roomdata = {}
+            roomdata.update({'name': room})
+            roomdata.update({'parent': loc_data[0]['id']})
+            roomdata.update({'site': (loc_data[0]['site'])['id']})
+            roomdata.update({'slug': slugify.slugify(room)})
+            rest.post_location(roomdata)
+        # upload racks
+        if config['Log']['DEBUG']:
+            msg = ('Racks', str(racks))
+            logger.debug(msg)
+        for rack in racks:
+            response = rest.post_rack(rack)
+            pp.pprint(response)
 
     def get_hardware(self):
         """
@@ -1219,12 +1215,13 @@ class DB(object):
         else:
             return False
 
-    def get_data():
+    def get_data(self):
         if not self.con:
             self.connect()
 
         with self.con:
             self.get_locations()
+            self.get_racks()
 
     @staticmethod
     def get_ports_by_device(ports, device_id):
@@ -1344,7 +1341,6 @@ if __name__ == '__main__':
     rest = REST()    
     racktables = DB()
     racktables.get_data()
-    #racktables.get_racks()
     #racktables.get_hardware()
     #racktables.get_container_map()
     #racktables.get_chassis()
