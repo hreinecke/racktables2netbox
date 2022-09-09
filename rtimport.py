@@ -849,7 +849,11 @@ class DB(object):
                     # Racktables rack position starts at the highest value
                     if 'position' in devicedata:
                         position = devicedata.pop('position', None)
-                        devicedata.update({'position': position - hwdata[0]['u_height'] + 1})
+                        # position = position - hwdata[0]['u_height'] + 1
+                        if position > 42:
+                            position = position - 3
+                        if position > 0:
+                            devicedata.update({'position': position})
 
         # upload device
         if not devicedata:
@@ -888,7 +892,11 @@ class DB(object):
         pp.pprint('Uploading device')
         pp.pprint(devicedata)
 
-        rest.post_device(devicedata)
+        try:
+            rest.post_device(devicedata)
+        except:
+            devicedata.pop('position', None)
+            rest.post_device(devicedata)
 
     def get_device_to_ip(self):
         if not self.con:
@@ -1127,10 +1135,10 @@ class DB(object):
             self.connect()
 
         with self.con:
-            self.get_locations()
-            self.get_racks()
+            #self.get_locations()
+            #self.get_racks()
             #self.get_hardware()
-            #self.get_devices()
+            self.get_devices()
 
     @staticmethod
     def get_ports_by_device(ports, device_id):
