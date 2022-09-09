@@ -194,8 +194,8 @@ class REST(object):
         logger.info('Uploading tenancy assignments data to {}'.format(url))
         self.uploader(data, url)
 
-    def patch_ip(self, data):
-        url = self.base_url + '/ipam/ip-addresses/
+    def patch_ip(self, id, data):
+        url = f'{self.base_url}/ipam/ip-addresses/{id}'
         logger.info('Patching ip address from {}'.format(url))
         self.patcher(data, url)
 
@@ -1010,10 +1010,11 @@ class DB(object):
             devicedata.pop('position', None)
             rest.post_device(devicedata)
 
-        if userdata:
+        if userdata or addrdata:
             data = (json.loads(rest.check_device(devicedata['name'])))['results']
             if not data:
                 return
+        if userdata:
             assignment_data = (json.loads(rest.check_tenancy_assignment(data[0]['id'])))['results']
             if assignment_data:
                 return
@@ -1026,8 +1027,11 @@ class DB(object):
             assignment_data.update({'priority': 'primary'})
             rest.post_tenancy_assignments(assignment_data)
         if addrdata:
-            addrdata.update({'assigned_object_id': data[0]['id']})
-            rest.patch_ip(addrdata)
+            patchdata = {}
+            patchdata.update({'address': addrdata['address']})
+            patchdata.update({'dns_name': addrdata['dns_name']})
+            patchdata.update({'assigned_object_id': data[0]['id']})
+            rest.patch_ip(addrdata['id'], patchdata)
 
     def get_device_to_ip(self):
         if not self.con:
