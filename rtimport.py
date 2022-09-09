@@ -920,10 +920,8 @@ class DB(object):
                 custom.update({'arch': rattr_str})
                 devicedata.update({'custom_fields': custom})
             if rattr_name == 'FQDN':
-                ip_data = (json.loads(rest.check_ip(rattr_str)))['results']
-                if ip_data:
-                    addrdata = ip_data[0]
-                    addrdata.update({'dns_name': rattr_str})
+                if devicedata['name'] != rattr_str:
+                    devicedata.update({'name': rattr_str})
             if rattr_name == 'contact person':
                 contact = rattr_str
                 if contact == 'QA Maintenance':
@@ -1010,11 +1008,10 @@ class DB(object):
             devicedata.pop('position', None)
             rest.post_device(devicedata)
 
-        if userdata or addrdata:
+        if userdata:
             data = (json.loads(rest.check_device(devicedata['name'])))['results']
             if not data:
                 return
-        if userdata:
             assignment_data = (json.loads(rest.check_tenancy_assignment(data[0]['id'])))['results']
             if assignment_data:
                 return
@@ -1026,12 +1023,6 @@ class DB(object):
             assignment_data.update({'role': 1})
             assignment_data.update({'priority': 'primary'})
             rest.post_tenancy_assignments(assignment_data)
-        if addrdata:
-            patchdata = {}
-            patchdata.update({'address': addrdata['address']})
-            patchdata.update({'dns_name': addrdata['dns_name']})
-            patchdata.update({'assigned_object_id': data[0]['id']})
-            rest.patch_ip(addrdata['id'], patchdata)
 
     def get_device_to_ip(self):
         if not self.con:
