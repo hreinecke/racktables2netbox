@@ -221,6 +221,12 @@ class REST(object):
         data = self.fetcher(url)
         return data
 
+    def check_ip(self, addr):
+        url = self.base_url + '/ipam/ip-addresses/?description=' + addr
+        logger.info('Checking ip address from {}'.format(url))
+        data = self.fetcher(url)
+        return data
+
     def check_rack(self, loc, rack):
         url = self.base_url + '/dcim/racks/?name=' + rack + '&location=' + loc
         logger.info('Checking rack from {}'.format(url))
@@ -340,6 +346,7 @@ class DB(object):
             msg = 'IP Address: %s' % ip
             logger.info(msg)
 
+            net.update({'dns_name': name})
             desc = ' '.join([name, comment]).strip()
             net.update({'description': desc})
             msg = 'Label: %s' % desc
@@ -900,7 +907,7 @@ class DB(object):
                 custom.update({'arch': rattr_str})
                 devicedata.update({'custom_fields': custom})
             if rattr_name == 'FQDN':
-                ip_data = (json.loads(rest.check_address(rattr_str)))['results']
+                ip_data = (json.loads(rest.check_ip(rattr_str)))['results']
                 if ip_data:
                     devicedata.update({'primary_ip': ip_data[0]['id']})
             if rattr_name == 'contact person':
