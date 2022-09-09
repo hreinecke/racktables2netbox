@@ -116,6 +116,11 @@ class REST(object):
         logger.info('Posting IP data to {}'.format(url))
         self.uploader(data, url)
 
+    def post_device_role(self, data):
+        url = self.base_url + '/dcim/device-roless/'
+        logger.info('Posting device roles to {}'.format(url))
+        self.uploader(data, url)
+
     def post_device(self, data):
         url = self.base_url + '/dcim/devices/'
         logger.info('Posting device data to {}'.format(url))
@@ -270,6 +275,12 @@ class REST(object):
         data = self.fetcher(url)
         return data
 
+    def check_device_role(self, role):
+        url = f'{self.base_url}/dcim/device-roles/?slug={role}'
+        logger.info('Fetching device roles from {}'.format(url))
+        data = self.fetcher(url)
+        return data
+
     def check_device(self, dev):
         url = self.base_url + '/dcim/devices/?name=' + dev
         logger.info('Checking device from {}'.format(url))
@@ -308,6 +319,7 @@ class DB(object):
         self.rack_id_map = {}
         self.container_map = {}
         self.building_room_map = {}
+        self.device_roles = {}
 
     def connect(self):
         """
@@ -701,11 +713,16 @@ class DB(object):
         raw = cur.fetchall()
         cur.close()
 
-        device_roles = {}
         for rec in raw:
             key, value = rec
-            device_roles.update({key: value})
-        pp.pprint(device_roles)
+            slug = slugify.slugify(value)
+            self.device_roles.update({key: slug})
+            role_data = json.loads(rest.check_role(slug))['results']
+            if not role_data:
+                role_data = {}
+                role_data.update({'name': value})
+                role_data.update({'slug': slug})
+                rest.post_device_role(role_data)
 
     def get_vmhosts(self):
         cur = self.con.cursor()
@@ -1010,8 +1027,8 @@ class DB(object):
             rack_data = json.loads((rest.check_rack('nue-unknown-location', '1')))['results']
             devicedata.update({'rack': rack_data[0]['id']})
 
-        # default to development role
-        dev_roles = (json.loads(rest.get_device_roles()))['results']
+        role_slug = self.device_roles[dev_type]
+        dev_roles = (json.loads(rest.check_device_role(role_slug)))['results']
         devicedata.update({'device_role': dev_roles[0]['id']})
         devicedata.update({'tenant': 1})
         devicedata.update({'face': 'front'})
