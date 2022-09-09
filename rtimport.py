@@ -757,7 +757,8 @@ class DB(object):
                     Object.label as Name,
                     Object.asset_no as Asset,
                     Attribute.name as Attrib,
-                    AttributeValue.string_value as Value,
+                    AttributeValue.uint_value as AttrValue,
+                    AttributeValue.string_value as AttrString,
                     Dictionary.dict_value as Type,
                     Object.comment as Comment,
                     RackSpace.unit_no as rack_pos,
@@ -795,8 +796,8 @@ class DB(object):
         dev_type = 0
 
         for x in data:
-            dev_type, rdesc, rname, rasset, rattr_name, rattr_value, rtype, \
-            rcomment, rrack_pos, rrack_name, rrow_name, \
+            dev_type, rdesc, rname, rasset, rattr_name, rattr_value, rattr_str,
+            rtype, rcomment, rrack_pos, rrack_name, rrow_name, \
             rlocation_id, rlocation_name, rparent_name = x
 
             name = rdesc
@@ -832,7 +833,7 @@ class DB(object):
                 devicedata.update({'asset_tag': rasset})
 
             if rattr_name == 'Operating System':
-                opsys = rattr_value
+                opsys = rattr_str
                 if '%GSKIP%' in opsys:
                     opsys = opsys.replace('%GSKIP%', ' ')
                 if '%GPASS%' in opsys:
@@ -872,13 +873,13 @@ class DB(object):
                 if '\t' in hardware:
                     hardware = hardware.replace('\t', ' ')
             if rattr_name == 'OEM S/N 1':
-                sn = rattr_value
+                sn = rattr_str
                 if sn:
                     devicedata.update({'serial': sn})
             if rattr_name == 'contact person':
-                contact = rattr_value
+                contact = rattr_str
                 if contact == 'QA Maintenance':
-                    email = 'qa-maint@suse.de'
+                    contact = 'qa-maint@suse.de'
                 if '<' in contact:
                     contact, email = contact.split('<')
                     contact = contact.strip()
