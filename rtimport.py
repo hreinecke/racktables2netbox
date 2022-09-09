@@ -176,6 +176,16 @@ class REST(object):
         logger.info('Uploading platforms data to {}'.format(url))
         self.uploader(data, url)
 
+    def post_tenancy_contacts(self, data):
+        url = self.base_url + '/tenancy/contacts/'
+        logger.info('Uploading tenancy contacts data to {}'.format(url))
+        self.uploader(data, url)
+
+    def post_tenancy_assignments(self, data):
+        url = self.base_url + '/tenancy/contact-assignments/'
+        logger.info('Uploading tenancy assignments data to {}'.format(url))
+        self.uploader(data, url)
+
     def get_pdu_models(self):
         url = self.base_url + '/1.0/pdu_models/'
         logger.info('Fetching PDU models from {}'.format(url))
@@ -250,6 +260,18 @@ class REST(object):
     def check_platform(self, plat):
         url = self.base_url + '/dcim/platforms/?slug=' + plat
         logger.info('Checking platform from {}'.format(url))
+        data = self.fetcher(url)
+        return data
+
+    def check_tenancy_user(self, user):
+        url = self.base_url + '/tenancy/contacts/?name=' + user
+        logger.info('Checking tenancy user from {}'.format(url))
+        data = self.fetcher(url)
+        return data
+
+    def check_tenancy_assigment(self, oid):
+        url = self.base_url + '/tenancy/contact-assigments/?object_id=' + oid
+        logger.info('Checking tenancy assignment from {}'.format(url))
         data = self.fetcher(url)
         return data
 
@@ -734,7 +756,8 @@ class DB(object):
                     Object.name as Description,
                     Object.label as Name,
                     Object.asset_no as Asset,
-                    Attribute.name as Name,
+                    Attribute.name as Attrib,
+                    AttributeValue.string_value as Value,
                     Dictionary.dict_value as Type,
                     Object.comment as Comment,
                     RackSpace.unit_no as rack_pos,
@@ -761,6 +784,7 @@ class DB(object):
 
     def process_data(self, data, dev_id):
         devicedata = {}
+        userdata = {}
         device2rack = {}
         name = None
         opsys = None
@@ -771,7 +795,7 @@ class DB(object):
         dev_type = 0
 
         for x in data:
-            dev_type, rdesc, rname, rasset, rattr_name, rtype, \
+            dev_type, rdesc, rname, rasset, rattr_name, rattr_value, rtype, \
             rcomment, rrack_pos, rrack_name, rrow_name, \
             rlocation_id, rlocation_name, rparent_name = x
 
@@ -784,6 +808,8 @@ class DB(object):
                 \n[!] INFO: Device with RT id=%d cannot be migrated because it has no name.' % dev_id
                 logger.info(msg)
                 continue
+
+            pp.pprint(x)
 
             # set device data
             devicedata.update({'name': name})
@@ -849,6 +875,18 @@ class DB(object):
                 sn = x[-8]
                 if sn:
                     devicedata.update({'serial': sn})
+            if 'contact person' in x:
+                email = x[-9]
+                if email:
+                    userdata = (json.loads(rest.check_tenancy_user(email)))['result']
+                    if not userdata:
+                        contact_data = {}
+                        # FIXME: use better group description
+                        contact_data.update({'group': 1})
+                        contact_data.update({'name': email})
+                        contact_data.update({'email': email})
+                        rest.post_tenancy_user(contact_data)
+                        userdata = (json.loads(rest.check_tenancy_user(email)))['result']
 
             if note:
                 note = note.replace('\n', ' ')
@@ -914,6 +952,22 @@ class DB(object):
         except:
             devicedata.pop('position', None)
             rest.post_device(devicedata)
+
+        if userdata:
+            data = (json.loads(rest.check_device(devicedata['name'])))['results']
+            if not data:
+                return
+            assigment_data = (json.loads(rest.check_tenancy_assignment(data[0]['id'])))['results']
+            if assignment_data:
+                return
+            assigment_data = {}
+            assignment_data.update({'content_type': 'dcim.device'})
+            assignment_data.update({'object_id': data[0]['id']})
+            assignment_data.update({'contact': userdata[0]['id']})
+            # FIXME: dynamic user roles!
+            assignment_data.update({'role': 1})
+            assignment_data.update({'priority': 'primary'})
+            rest.post_tenancy_assigment(assigment_data)
 
     def get_device_to_ip(self):
         if not self.con:
