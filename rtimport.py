@@ -79,6 +79,19 @@ class REST(object):
 
         return r.json()
 
+    def patcher(self, data, url):
+        method = 'PATCH'
+
+        logger.debug("HTTP Request: {} - {} - {}".format(method, url, data))
+
+        request = requests.Request(method, url, data = json.dumps(data))
+        prepared_request = self.s.prepare_request(request)
+        r = self.s.send(prepared_request)
+        logger.debug(f"HTTP Response: {r.status_code!s} - {r.reason} - {r.text}")
+        r.raise_for_status()
+
+        return r.json()
+
     def fetcher(self, url):
         method = 'GET'
 
@@ -151,11 +164,6 @@ class REST(object):
         logger.info('Adding hardware data to {}'.format(url))
         self.uploader(data, url)
 
-    def post_device2rack(self, data):
-        url = self.base_url + '/1.0/device/rack/'
-        logger.info('Adding device to rack at {}'.format(url))
-        self.uploader(data, url)
-
     def post_switchport(self, data):
         url = self.base_url + '/1.0/switchports/'
         logger.info('Uploading switchports data to {}'.format(url))
@@ -185,6 +193,11 @@ class REST(object):
         url = self.base_url + '/tenancy/contact-assignments/'
         logger.info('Uploading tenancy assignments data to {}'.format(url))
         self.uploader(data, url)
+
+    def patch_ip(self, data):
+        url = self.base_url + '/ipam/ip-addresses/
+        logger.info('Patching ip address from {}'.format(url))
+        self.patcher(data, url)
 
     def get_pdu_models(self):
         url = self.base_url + '/1.0/pdu_models/'
@@ -793,7 +806,7 @@ class DB(object):
     def process_data(self, data, dev_id):
         devicedata = {}
         userdata = {}
-        device2rack = {}
+        addrdata = {}
         name = None
         opsys = None
         hardware = None
@@ -909,7 +922,8 @@ class DB(object):
             if rattr_name == 'FQDN':
                 ip_data = (json.loads(rest.check_ip(rattr_str)))['results']
                 if ip_data:
-                    devicedata.update({'primary_ip': ip_data[0]['id']})
+                    addrdata = ip_data[0]
+                    addrdata.update({'dns_name': rattr_str})
             if rattr_name == 'contact person':
                 contact = rattr_str
                 if contact == 'QA Maintenance':
@@ -1011,6 +1025,9 @@ class DB(object):
             assignment_data.update({'role': 1})
             assignment_data.update({'priority': 'primary'})
             rest.post_tenancy_assignments(assignment_data)
+        if addrdata:
+            addrdata.update({'assigned_object_id': data[0]['id']})
+            rest.patch_ip(addrdata)
 
     def get_device_to_ip(self):
         if not self.con:
