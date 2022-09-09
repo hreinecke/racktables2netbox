@@ -919,6 +919,13 @@ class DB(object):
                     custom = {}
                 custom.update({'arch': rtype})
                 devicedata.update({'custom_fields': custom})
+            if rattr_name == 'UUID':
+                if 'custom_fields' in devicedata:
+                    custom = devicedata.pop('custom_fields', None)
+                else:
+                    custom = {}
+                custom.update({'uuid': rattr_str})
+                devicedata.update({'custom_fields': custom})
             if rattr_name == 'FQDN':
                 if devicedata['name'] != rattr_str:
                     devicedata.update({'name': rattr_str})
