@@ -796,8 +796,9 @@ class DB(object):
         dev_type = 0
 
         for x in data:
-            dev_type, rdesc, rname, rasset, rattr_name, rattr_value, rattr_str,
-            rtype, rcomment, rrack_pos, rrack_name, rrow_name, \
+            dev_type, rdesc, rname, rasset, \
+            rattr_name, rattr_value, rattr_str, rtype, \
+            rcomment, rrack_pos, rrack_name, rrow_name, \
             rlocation_id, rlocation_name, rparent_name = x
 
             name = rdesc
@@ -876,6 +877,32 @@ class DB(object):
                 sn = rattr_str
                 if sn:
                     devicedata.update({'serial': sn})
+            if rattr_name == 'Orthos-ID':
+                orthos_id = rattr_value
+                if 'custom_fields' in devicedata:
+                    custom = devicedata.pop('custom_fields', None)
+                else:
+                    custom = {}
+                custom.update({'orthos_id': orthos_id})
+                devicedata.update({'custom_fields': custom})
+            if rattr_name == 'Product Code':
+                if 'custom_fields' in devicedata:
+                    custom = devicedata.pop('custom_fields', None)
+                else:
+                    custom = {}
+                custom.update({'product_code': rattr_str})
+                devicedata.update({'custom_fields': custom})
+            if rattr_name == 'Architecture':
+                if 'custom_fields' in devicedata:
+                    custom = devicedata.pop('custom_fields', None)
+                else:
+                    custom = {}
+                custom.update({'arch': rattr_str})
+                devicedata.update({'custom_fields': custom})
+            if rattr_name == 'FQDN':
+                ip_data = (json.loads(rest.check_address(rattr_str)))['results']
+                if ip_data:
+                    devicedata.update({'primary_ip': ip_data[0]['id']})
             if rattr_name == 'contact person':
                 contact = rattr_str
                 if contact == 'QA Maintenance':
