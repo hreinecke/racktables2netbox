@@ -176,7 +176,7 @@ class REST(object):
         logger.info('Uploading platforms data to {}'.format(url))
         self.uploader(data, url)
 
-    def post_tenancy_contacts(self, data):
+    def post_tenancy_users(self, data):
         url = self.base_url + '/tenancy/contacts/'
         logger.info('Uploading tenancy contacts data to {}'.format(url))
         self.uploader(data, url)
@@ -269,8 +269,8 @@ class REST(object):
         data = self.fetcher(url)
         return data
 
-    def check_tenancy_assigment(self, oid):
-        url = self.base_url + '/tenancy/contact-assigments/?object_id=' + oid
+    def check_tenancy_assignment(self, oid):
+        url = f'{self.base_url}/tenancy/contact-assignments/?object_id={oid}'
         logger.info('Checking tenancy assignment from {}'.format(url))
         data = self.fetcher(url)
         return data
@@ -876,17 +876,27 @@ class DB(object):
                 if sn:
                     devicedata.update({'serial': sn})
             if 'contact person' in x:
-                email = x[-9]
-                if email:
-                    userdata = (json.loads(rest.check_tenancy_user(email)))['result']
+                contact = x[-9]
+                if contact == 'QA Maintenance':
+                    email = 'qa-maint@suse.de'
+                if '<' in contact:
+                    contact, email = contact.split('<')
+                    contact = contact.strip()
+                    email = email.rstrip('>')
+                if contact and not userdata:
+                    userdata = (json.loads(rest.check_tenancy_user(contact)))['results']
                     if not userdata:
                         contact_data = {}
-                        # FIXME: use better group description
-                        contact_data.update({'group': 1})
-                        contact_data.update({'name': email})
+                        contact_data.update({'name': contact})
+                        if contact == 'eng-infra':
+                            email = email + '@suse.de'
+                        elif '@' not in contact:
+                            email = email + '@suse.de'
+                        else:
+                            email = contact
                         contact_data.update({'email': email})
-                        rest.post_tenancy_user(contact_data)
-                        userdata = (json.loads(rest.check_tenancy_user(email)))['result']
+                        rest.post_tenancy_users(contact_data)
+                        userdata = (json.loads(rest.check_tenancy_user(email)))['results']
 
             if note:
                 note = note.replace('\n', ' ')
@@ -957,17 +967,17 @@ class DB(object):
             data = (json.loads(rest.check_device(devicedata['name'])))['results']
             if not data:
                 return
-            assigment_data = (json.loads(rest.check_tenancy_assignment(data[0]['id'])))['results']
+            assignment_data = (json.loads(rest.check_tenancy_assignment(data[0]['id'])))['results']
             if assignment_data:
                 return
-            assigment_data = {}
+            assignment_data = {}
             assignment_data.update({'content_type': 'dcim.device'})
             assignment_data.update({'object_id': data[0]['id']})
             assignment_data.update({'contact': userdata[0]['id']})
             # FIXME: dynamic user roles!
             assignment_data.update({'role': 1})
             assignment_data.update({'priority': 'primary'})
-            rest.post_tenancy_assigment(assigment_data)
+            rest.post_tenancy_assignments(assignment_data)
 
     def get_device_to_ip(self):
         if not self.con:
