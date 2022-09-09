@@ -799,8 +799,8 @@ class DB(object):
             rcomment, rrack_pos, rrack_name, rrow_name, \
             rlocation_id, rlocation_name, rparent_name = x
 
-            name = x[1]
-            note = x[-7]
+            name = rdesc
+            note = rcomment
 
             if not name:
                 # device has no name thus it cannot be migrated
@@ -831,14 +831,14 @@ class DB(object):
             if rasset:
                 devicedata.update({'asset_tag': rasset})
 
-            if 'Operating System' in x:
-                opsys = x[-8]
+            if rattr_name == 'Operating System':
+                opsys = rattr_value
                 if '%GSKIP%' in opsys:
                     opsys = opsys.replace('%GSKIP%', ' ')
                 if '%GPASS%' in opsys:
                     opsys = opsys.replace('%GPASS%', ' ')
-            if 'SW type' in x:
-                opsys = x[-8]
+            if rattr_name == 'SW type':
+                opsys = rtype
                 if '%GSKIP%' in opsys:
                     opsys = opsys.replace('%GSKIP%', ' ')
                 if '%GPASS%' in opsys:
@@ -854,8 +854,8 @@ class DB(object):
                     plat_data = (json.loads(rest.check_platform(slug)))['results']
                 devicedata.update({'platform': plat_data[0]['id']})
 
-            if 'Server Hardware' in x:
-                hardware = x[-8]
+            if rattr_name == 'Server Hardware':
+                hardware = rtype
                 if '%GSKIP%' in hardware:
                     vendor, hardware = hardware.split('%GSKIP%')
                 if '%GPASS%' in hardware:
@@ -863,20 +863,20 @@ class DB(object):
                 if '\t' in hardware:
                     hardware = hardware.replace('\t', ' ')
 
-            if 'HW type' in x:
-                hardware = x[-8]
+            if rattr_name == 'HW type':
+                hardware = rtype
                 if '%GSKIP%' in hardware:
                     vendor, hardware = hardware.split('%GSKIP%')
                 if '%GPASS%' in hardware:
                     vendor, hardware = hardware.split('%GPASS%')
                 if '\t' in hardware:
                     hardware = hardware.replace('\t', ' ')
-            if 'OEM S/N 1' in x:
-                sn = x[-8]
+            if rattr_name == 'OEM S/N 1':
+                sn = rattr_value
                 if sn:
                     devicedata.update({'serial': sn})
-            if 'contact person' in x:
-                contact = x[-9]
+            if rattr_name == 'contact person':
+                contact = rattr_value
                 if contact == 'QA Maintenance':
                     email = 'qa-maint@suse.de'
                 if '<' in contact:
@@ -915,8 +915,6 @@ class DB(object):
                     if 'position' in devicedata:
                         position = devicedata.pop('position', None)
                         # position = position - hwdata[0]['u_height'] + 1
-                        if position > 42:
-                            position = position - 3
                         if position > 0:
                             devicedata.update({'position': position})
 
