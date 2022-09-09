@@ -171,6 +171,11 @@ class REST(object):
         logger.info('Uploading patch panels modules data to {}}'.format(url))
         self.uploader(data, url)
 
+    def post_platforms(self, data):
+        url = self.base_url + '/dcim/platforms/'
+        logger.info('Uploading platforms data to {}'.format(url))
+        self.uploader(data, url)
+
     def get_pdu_models(self):
         url = self.base_url + '/1.0/pdu_models/'
         logger.info('Fetching PDU models from {}'.format(url))
@@ -239,6 +244,12 @@ class REST(object):
     def check_device(self, dev):
         url = self.base_url + '/dcim/devices/?name=' + dev
         logger.info('Checking device from {}'.format(url))
+        data = self.fetcher(url)
+        return data
+
+    def check_platform(self, plat):
+        url = self.base_url + '/dcim/platforms/?slug=' + plat
+        logger.info('Checking platform from {}'.format(url))
         data = self.fetcher(url)
         return data
 
@@ -807,9 +818,15 @@ class DB(object):
                 if '%GPASS%' in opsys:
                     opsys = opsys.replace('%GPASS%', ' ')
             if opsys:
-                custom = {}
-                custom.update({'os': opsys})
-                devicedata.update({'custom_fields': custom})
+                slug = slugify.slugify(opsys)
+                plat_data = (json.loads(rest.check_platform(slug)))['results']
+                if not plat_data:
+                    plat = {}
+                    plat.update({'name': opsys})
+                    plat.update({'slug': slug})
+                    rest.post_platforms(plat)
+                    plat_data = (json.loads(rest.check_platform(slug)))['results']
+                devicedata.update({'platform': plat_data[0]['id']})
 
             if 'Server Hardware' in x:
                 hardware = x[-8]
