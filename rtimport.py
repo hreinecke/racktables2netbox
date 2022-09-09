@@ -694,14 +694,24 @@ class DB(object):
             hwddata.update({'name': name[:48]})
             rest.post_hardware(hwddata)
 
+    def get_device_roles(self):
+        cur = self.con.cursor()
+        q = """SELECT dict_key, dict_value FROM Dictionary WHERE chapter_id='1'"""
+        cur.execute(q)
+        raw = cur.fetchall()
+        cur.close()
+
+        device_roles = {}
+        for rec in raw:
+            key, value = rec
+            device_roles.update({key: value})
+        pp.pprint(device_roles)
+
     def get_vmhosts(self):
-        if not self.con:
-            self.connect()
-        with self.con:
-            cur = self.con.cursor()
-            q = """SELECT id, name FROM Object WHERE objtype_id='1505'"""
-            cur.execute(q)
-            raw = cur.fetchall()
+        cur = self.con.cursor()
+        q = """SELECT id, name FROM Object WHERE objtype_id='1505'"""
+        cur.execute(q)
+        raw = cur.fetchall()
 
         dev = {}
         for rec in raw:
@@ -795,7 +805,7 @@ class DB(object):
                     LEFT JOIN Rack ON RackSpace.rack_id = Rack.id
                     LEFT JOIN Location ON Rack.location_id = Location.id
                     WHERE Object.id = %s
-                    AND Object.objtype_id not in (2,9,1505,1560,1561,1562,50275)""" % dev_id
+                    AND Object.objtype_id not in (1,2,3,9,10,11,1505,1560,1561,1562,50275)""" % dev_id
 
             cur.execute(q)
             data = cur.fetchall()
@@ -1268,6 +1278,7 @@ class DB(object):
             self.connect()
 
         with self.con:
+            self.get_device_roles()
             #self.get_locations()
             #self.get_racks()
             #self.get_hardware()
