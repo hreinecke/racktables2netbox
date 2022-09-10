@@ -117,7 +117,7 @@ class REST(object):
         self.uploader(data, url)
 
     def post_device_role(self, data):
-        url = self.base_url + '/dcim/device-roless/'
+        url = self.base_url + '/dcim/device-roles/'
         logger.info('Posting device roles to {}'.format(url))
         self.uploader(data, url)
 
@@ -717,7 +717,7 @@ class DB(object):
             key, value = rec
             slug = slugify.slugify(value)
             self.device_roles.update({key: slug})
-            role_data = json.loads(rest.check_role(slug))['results']
+            role_data = json.loads(rest.check_device_role(slug))['results']
             if not role_data:
                 role_data = {}
                 role_data.update({'name': value})
@@ -822,7 +822,7 @@ class DB(object):
                     LEFT JOIN Rack ON RackSpace.rack_id = Rack.id
                     LEFT JOIN Location ON Rack.location_id = Location.id
                     WHERE Object.id = %s
-                    AND Object.objtype_id not in (1,2,3,9,10,11,1505,1560,1561,1562,50275)""" % dev_id
+                    AND Object.objtype_id not in (1,2,3,9,10,11,1504,1505,1506,1507,1560,1561,1562,50275)""" % dev_id
 
             cur.execute(q)
             data = cur.fetchall()
@@ -964,15 +964,17 @@ class DB(object):
                     contact, email = contact.split('<')
                     contact = contact.strip()
                     email = email.rstrip('>')
+                if ',' in contact:
+                    contact, contact_sec = contact.split(',')
+                    contact = contact.strip()
+                    contact_sec = contact_sec.strip()
                 if contact and not userdata:
                     userdata = (json.loads(rest.check_tenancy_user(contact)))['results']
                     if not userdata:
                         contact_data = {}
                         contact_data.update({'name': contact})
-                        if contact == 'eng-infra':
-                            email = email + '@suse.de'
-                        elif '@' not in contact:
-                            email = email + '@suse.de'
+                        if '@' not in contact:
+                            email = contact + '@suse.de'
                         else:
                             email = contact
                         contact_data.update({'email': email})
