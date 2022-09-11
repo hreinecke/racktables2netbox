@@ -793,9 +793,8 @@ class DB(object):
         ids = [x[0] for x in idsx]
 
         for dev_id in ids:
-            self.get_device_tags(dev_id)
+            tags = self.get_device_tags(dev_id)
 
-        for dev_id in ids:
             cur = self.con.cursor()
             q = """Select
                     Object.objtype_id,
@@ -827,9 +826,9 @@ class DB(object):
             data = cur.fetchall()
             cur.close()
             if data:  # RT objects that do not have data are locations, racks, rows etc...
-                self.process_data(data, dev_id)
+                self.process_data(data, dev_id, tags)
 
-    def process_data(self, data, dev_id):
+    def process_data(self, data, dev_id, tags):
         devicedata = {}
         userdata = {}
         addrdata = {}
@@ -1065,9 +1064,13 @@ class DB(object):
         data = cur.fetchall()
         cur.close()
 
-        pp.pprint(f'Tags for device {id}')
+        tags = {}
         for rec in data:
-            pp.pprint(rec)
+            id, tag = rec
+            tags.append(tag)
+
+        pp.pprint(tags)
+        return tags
 
     def get_device_to_ip(self):
         if not self.con:
