@@ -1060,8 +1060,7 @@ class DB(object):
         cur = self.con.cursor()
         q = """SELECT tt.id, tag FROM
                 TagStorage AS ts INNER JOIN TagTree AS tt ON ts.tag_id = tt.id
-                WHERE entity_realm = ? AND entity_id = %d
-                ORDER BY tt.tag""" % id
+                WHERE entity_realm = 'object' AND entity_id = %d""" % id
         cur.execute(q)
         data = cur.fetchall()
         cur.close()
