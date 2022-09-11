@@ -614,6 +614,8 @@ class DB(object):
             hwddata.update({'model': model})
             hwddata.update({'slug': slug})
             hwddata.update({'manufacturer': manuf_data[0]['id']})
+            if '%L' in model:
+                hwddata.update({'subdevice_role': 'parent'})
             rest.post_hardware(hwddata)
 
     def get_hardware_size(self, data_id):
@@ -743,14 +745,11 @@ class DB(object):
             rest.post_device(dev)
 
     def get_chassis(self):
-        if not self.con:
-            self.connect()
-        with self.con:
-            cur = self.con.cursor()
-            q = """SELECT id, name FROM Object WHERE objtype_id='1502'"""
-            cur.execute(q)
-            raw = cur.fetchall()
-            cur.close()
+        cur = self.con.cursor()
+        q = """SELECT id, name FROM Object WHERE objtype_id='1502'"""
+        cur.execute(q)
+        raw = cur.fetchall()
+        cur.close()
 
         dev = {}
         for rec in raw:
@@ -770,15 +769,12 @@ class DB(object):
         Which Blade goes into which Chassis ?
         :return:
         """
-        if not self.con:
-            self.connect()
-        with self.con:
-            cur = self.con.cursor()
-            q = """SELECT parent_entity_id AS container_id, child_entity_id AS object_id
-                    FROM EntityLink WHERE child_entity_type='object' AND parent_entity_type = 'object'"""
-            cur.execute(q)
-            raw = cur.fetchall()
-            cur.close()
+        cur = self.con.cursor()
+        q = """SELECT parent_entity_id AS container_id, child_entity_id AS object_id
+                FROM EntityLink WHERE child_entity_type='object' AND parent_entity_type = 'object'"""
+        cur.execute(q)
+        raw = cur.fetchall()
+        cur.close()
 
         for rec in raw:
             container_id, object_id = rec
@@ -795,6 +791,9 @@ class DB(object):
         cur.close()
 
         ids = [x[0] for x in idsx]
+
+        for dev_id in ids:
+            self.get_device_tags(dev_id)
 
         for dev_id in ids:
             cur = self.con.cursor()
@@ -1003,14 +1002,11 @@ class DB(object):
 
         # upload device
         if not devicedata:
-            pp.pprint('No data for machine')
-            return
+            hwdata = json.loads(rest.check_hardware('noname-unknown'))['results']
+            devicedata.update({'device_type': hwdata[0]['id']})
+            pp.pprint('Defaulting to noname/unknown for device type')
 
         pp.pprint(devicedata)
-        if 'device_type' not in devicedata:
-            pp.pprint('device_type is required')
-            return
-
         data = {}
         try:
             data = json.loads(rest.check_device(devicedata['name']))['results']
@@ -1059,6 +1055,20 @@ class DB(object):
             assignment_data.update({'role': 1})
             assignment_data.update({'priority': 'primary'})
             rest.post_tenancy_assignments(assignment_data)
+
+    def get_device_tags(self, id):
+        cur = self.con.cursor()
+        q = """SELECT tt.id, tag FROM
+                TagStorage AS ts INNER JOIN TagTree AS tt ON ts.tag_id = tt.id
+                WHERE entity_realm = ? AND entity_id = %d
+                ORDER BY tt.tag""" % id
+        cur.execute(q)
+        data = cur.fetchall()
+        cur.close()
+
+        pp.pprint(f'Tags for device {id}')
+        for rec in data:
+            pp.pprint(rec)
 
     def get_device_to_ip(self):
         if not self.con:
