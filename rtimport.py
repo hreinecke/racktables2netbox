@@ -737,14 +737,14 @@ class DB(object):
         cur.close()
 
         current_roles = json.loads(rest.get_device_roles())['results']
+        role_list = []
         for role in current_roles:
-            self.device_roles.update({role['name']: role['slug']})
-        pp.pprint(self.device_roles)
+            role_list.append(role['slug'])
         for rec in raw:
             key, value = rec
-            if value not in self.device_roles:
-                slug = slugify.slugify(value)
-                self.device_roles.update({value: slug})
+            slug = slugify.slugify(value)
+            self.device_roles.update({key: slug})
+            if slug not in role_list:
                 role_data = {}
                 role_data.update({'name': value})
                 role_data.update({'slug': slug})
