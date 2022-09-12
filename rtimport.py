@@ -220,8 +220,13 @@ class REST(object):
         self.fetcher(url)
 
     def get_tags(self):
-        url = f'{self.base_url}/extras/tags/'
+        url = f'{self.base_url}/extras/tags/?limit=40'
         logger.info('Fetching tags from {}'.format(url))
+        data = self.fetcher(url)
+        return json.loads(data)
+
+    def get_tags_next(self, url):
+        logger.info('Fetching more tags from {}'.format(url))
         data = self.fetcher(url)
         return json.loads(data)
 
@@ -755,9 +760,13 @@ class DB(object):
         cur.close()
 
         current_tags = []
-        tag_list = (rest.get_tags())['results']
-        for tag_elem in tag_list:
-            current_tags.append(tag_elem['name'])
+        ret = rest.get_tags()
+        while ret['next']:
+            tag_list = ret['results']
+            for tag_elem in tag_list:
+                current_tags.append(tag_elem['name'])
+            ret = rest.get_tags_next(ret['next'])
+
         for rec in data:
             tag = rec[1]
             if tag not in current_tags:
