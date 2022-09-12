@@ -222,12 +222,13 @@ class REST(object):
     def get_tags(self):
         url = f'{self.base_url}/extras/tags/'
         logger.info('Fetching tags from {}'.format(url))
-        self.fetcher(url)
+        data = self.fetcher(url)
+        return json.loads(data)
 
     def get_racks(self):
         url = self.base_url + '/dcim/racks/'
         logger.info('Fetching racks from {}'.format(url))
-        ata = self.fetcher(url)
+        data = self.fetcher(url)
         return data
 
     def get_device_roles(self):
@@ -732,14 +733,13 @@ class DB(object):
 
         current_roles = json.loads(rest.get_device_roles())['results']
         for role in current_roles:
-            pp.pprint(role)
-
+            self.device_roles.update({role['name']: role['slug']})
+        pp.pprint(self.device_roles)
         for rec in raw:
             key, value = rec
-            slug = slugify.slugify(value)
-            self.device_roles.update({key: slug})
-            role_data = json.loads(rest.check_device_role(slug))['results']
-            if not role_data:
+            if value not in self.device_roles:
+                slug = slugify.slugify(value)
+                self.device_roles.update({value: slug})
                 role_data = {}
                 role_data.update({'name': value})
                 role_data.update({'slug': slug})
@@ -754,17 +754,19 @@ class DB(object):
         data = cur.fetchall()
         cur.close()
 
-        current_tags = json.loads(rest.get_tags())['results']
-        tag_data = []
+        current_tags = []
+        tag_list = (rest.get_tags())['results']
+        for tag_elem in tag_list:
+            current_tags.append(tag_elem['name'])
         for rec in data:
             tag = rec[1]
             if tag not in current_tags:
-                tag_elem = {}
-                tag_elem.update({'name': tag})
-                tag_elem.update({'slug': slugify.slugify(tag)})
-                tag_data.append(tag_elem)
-        if tag_data:
-            rest.post_tags(tag_data)
+                tag_data = {}
+                slug = slugify.slugify(tag)
+                tag_data.update({'name': tag})
+                tag_data.update({'slug': slug})
+                rest.post_tags(tag_data)
+                current_tags.append(tag)
 
     def get_vmhosts(self):
         cur = self.con.cursor()
