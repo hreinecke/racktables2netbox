@@ -204,6 +204,11 @@ class REST(object):
         logger.info('Patching ip address from {}'.format(url))
         self.patcher(data, url)
 
+    def patch_device(self, id, data):
+        url = f'{self.base_url}/dcim/devices/{id}'
+        logger.info('Patching device data from {}'.format(url))
+        self.patcher(data, url)
+
     def get_pdu_models(self):
         url = self.base_url + '/1.0/pdu_models/'
         logger.info('Fetching PDU models from {}'.format(url))
@@ -1001,6 +1006,19 @@ class DB(object):
 
         # upload device
         if not devicedata:
+            pp.pprint('Device data missing')
+            return
+
+        tag_data = []
+        for tag in tags:
+            tag_elem = {}
+            tag_elem.update({'name': tag})
+            tag_elem.update({'slug': slugify.slugify(tag)})
+            tag_data.append(tag_elem)
+        if tag_data:
+            devicedata.update({'tags': tag_data})
+
+        if 'device_type' not in devicedata:
             hwdata = json.loads(rest.check_hardware('noname-unknown'))['results']
             devicedata.update({'device_type': hwdata[0]['id']})
             pp.pprint('Defaulting to noname/unknown for device type')
@@ -1013,7 +1031,10 @@ class DB(object):
         except:
             pass
         if data:
-            pp.pprint('Already present')
+            if 'tags' not in data[0]:
+                rest.patch_device(data[0]['id'], devicedata)
+            else:
+                pp.pprint('Already present')
             return
 
         if 'location' not in devicedata:
@@ -1064,12 +1085,11 @@ class DB(object):
         data = cur.fetchall()
         cur.close()
 
-        tags = {}
+        tags = []
         for rec in data:
-            id, tag = rec
-            tags.append(tag)
+            tags.append(rec[1])
 
-        pp.pprint(tags)
+        pp.pprint(f'tags: {tags}')
         return tags
 
     def get_device_to_ip(self):
