@@ -761,10 +761,12 @@ class DB(object):
 
         current_tags = []
         ret = rest.get_tags()
-        while ret['next']:
+        while ret['results']:
             tag_list = ret['results']
             for tag_elem in tag_list:
                 current_tags.append(tag_elem['name'])
+            if not ret['next']:
+                break
             ret = rest.get_tags_next(ret['next'])
 
         for rec in data:
