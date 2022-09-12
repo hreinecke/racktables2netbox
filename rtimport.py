@@ -116,6 +116,11 @@ class REST(object):
         logger.info('Posting IP data to {}'.format(url))
         self.uploader(data, url)
 
+    def post_tags(self, data):
+        url = f'{self.base_url}/extras/tags/'
+        logger.info('Posting tag data to {}'.format(url))
+        self.uploader(data, url)
+
     def post_device_role(self, data):
         url = self.base_url + '/dcim/device-roles/'
         logger.info('Posting device roles to {}'.format(url))
@@ -212,6 +217,11 @@ class REST(object):
     def get_pdu_models(self):
         url = self.base_url + '/1.0/pdu_models/'
         logger.info('Fetching PDU models from {}'.format(url))
+        self.fetcher(url)
+
+    def get_tags(self):
+        url = f'{self.base_url}/extras/tags/'
+        logger.info('Fetching tags from {}'.format(url))
         self.fetcher(url)
 
     def get_racks(self):
@@ -720,6 +730,10 @@ class DB(object):
         raw = cur.fetchall()
         cur.close()
 
+        current_roles = json.loads(rest.get_device_roles())['results']
+        for role in current_roles:
+            pp.pprint(role)
+
         for rec in raw:
             key, value = rec
             slug = slugify.slugify(value)
@@ -730,6 +744,27 @@ class DB(object):
                 role_data.update({'name': value})
                 role_data.update({'slug': slug})
                 rest.post_device_role(role_data)
+
+    def get_tags(self):
+        cur = self.con.cursor()
+        q = """SELECT tt.id, tag FROM
+                TagStorage AS ts INNER JOIN TagTree AS tt ON ts.tag_id = tt.id
+                WHERE entity_realm = 'object'"""
+        cur.execute(q)
+        data = cur.fetchall()
+        cur.close()
+
+        current_tags = json.loads(rest.get_tags())['results']
+        tag_data = []
+        for rec in data:
+            tag = rec[1]
+            if tag not in current_tags:
+                tag_elem = {}
+                tag_elem.update({'name': tag})
+                tag_elem.update({'slug': slugify.slugify(tag)})
+                tag_data.append(tag_elem)
+        if tag_data:
+            rest.post_tags(tag_data)
 
     def get_vmhosts(self):
         cur = self.con.cursor()
@@ -1330,6 +1365,7 @@ class DB(object):
 
         with self.con:
             self.get_device_roles()
+            self.get_tags()
             #self.get_locations()
             #self.get_racks()
             #self.get_hardware()
