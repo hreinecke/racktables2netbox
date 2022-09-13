@@ -846,14 +846,14 @@ class DB(object):
 
         for rec in raw:
             pid, pname, ptype, cid, cname, ctype = rec
-            if ptype == '1505':
-                cdata = json.loads(rest.check_vmcluster(cname))['results']
-            else:
-                cdata = json.loads(rest.check_device(cname))['results']
+            cdata = json.loads(rest.check_device(cname))['results']
             if not cdata:
                 continue
-            data = json.loads(rest.check_device(pname))['results']
-            if not data:
+            if ptype == 1505:
+                pdata = json.loads(rest.check_vmcluster(cname))['results']
+            else:
+                pdata = json.loads(rest.check_device(pname))['results']
+            if not pdata:
                 logger.info(f'Unknown chassis {pname} type {ptype}')
                 continue
             if data[0]['location']['slug'] == 'nue-unknown-location':
