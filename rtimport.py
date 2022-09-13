@@ -839,6 +839,9 @@ class DB(object):
         for rec in raw:
             pid, pname, cid, cname = rec
             data = json.loads(rest.check_device(pname))['results']
+            if not data:
+                logger.info(f'Unknown chassis {pname}')
+                continue
             if data[0]['location']['slug'] == 'nue-unknown-location':
                 logger.info(f'Unknown location for chassis {pname}')
             pp.pprint(rec)
