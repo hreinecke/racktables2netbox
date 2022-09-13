@@ -210,7 +210,7 @@ class REST(object):
         self.patcher(data, url)
 
     def patch_device(self, id, data):
-        url = f'{self.base_url}/dcim/devices/{id}'
+        url = f'{self.base_url}/dcim/devices/{id}/'
         logger.info('Patching device data from {}'.format(url))
         self.patcher(data, url)
 
@@ -849,15 +849,31 @@ class DB(object):
             cdata = json.loads(rest.check_device(cname))['results']
             if not cdata:
                 continue
-            if ptype == 1505:
-                pdata = json.loads(rest.check_vmcluster(cname))['results']
+            if ptype == 1505 or ptype == 1506:
+                pdata = json.loads(rest.check_vmcluster(pname))['results']
             else:
                 pdata = json.loads(rest.check_device(pname))['results']
             if not pdata:
                 logger.info(f'Unknown chassis {pname} type {ptype}')
                 continue
-            if data[0]['location']['slug'] == 'nue-unknown-location':
+            if ptype == 1505 or ptype == 1506:
+                continue
+            if pdata[0]['location']['slug'] == 'nue-unknown-location':
                 logger.info(f'Unknown location for chassis {pname}')
+                continue
+            if pdata[0]['name'] == 'NUE-2.3.14-D(top)':
+                continue
+            devicedata = {}
+            if pdata[0]['site']['id'] != cdata[0]['site']['id']:
+                devicedata.update({'site': pdata[0]['site']['id']})
+            if pdata[0]['location']['id'] != cdata[0]['location']['id']:
+                devicedata.update({'location': pdata[0]['location']['id']})
+            if pdata[0]['rack']['id'] != cdata[0]['rack']['id']:
+                devicedata.update({'rack': pdata[0]['rack']['id']})
+            if devicedata:
+                devicedata.update({'face': ''})
+                logger.info(f'Fixing up location info for {cname}')
+                rest.patch_device(cdata[0]['id'], devicedata)
 
     def get_devices(self):
         self.all_ports = self.get_ports()
@@ -1531,7 +1547,7 @@ if __name__ == '__main__':
 
     # Initialize logging platform
     logger = logging.getLogger('racktables2netbox')
-    logger.setLevel(logging.INFO)
+    logger.setLevel(logging.DEBUG)
 
     # Log to file
     fh = logging.FileHandler(config['Log']['LOGFILE'])
