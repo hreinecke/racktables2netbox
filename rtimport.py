@@ -827,7 +827,7 @@ class DB(object):
         q = """SELECT parent_entity_id AS container_id,
             po.name AS container_name,
             child_entity_id AS object_id,
-            co.name AS object_name,
+            co.name AS object_name
             FROM EntityLink AS el
             INNER JOIN Object AS po ON el.parent_entity_id = po.id
             INNER JOIN Object AS co ON el.child_entity_id = co.id
@@ -837,6 +837,10 @@ class DB(object):
         cur.close()
 
         for rec in raw:
+            pid, pname, cid, cname = rec
+            data = json.loads(rest.check_device(pname))['results']
+            if data[0]['location']['slug'] == 'nue-unknown-location':
+                logger.info(f'Unknown location for chassis {pname}')
             pp.pprint(rec)
 
     def get_devices(self):
@@ -1540,7 +1544,6 @@ if __name__ == '__main__':
     rest = REST()    
     racktables = DB()
     racktables.get_data()
-    #racktables.get_container_map()
     #racktables.get_chassis()
     #racktables.get_vmhosts()
     #racktables.get_device_to_ip()
