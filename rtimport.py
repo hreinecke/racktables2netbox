@@ -826,8 +826,10 @@ class DB(object):
         cur = self.con.cursor()
         q = """SELECT parent_entity_id AS container_id,
             po.name AS container_name,
-            child_entity_id AS object_id,
-            co.name AS object_name
+            po.objtype_id as container_type,
+            child_entity_id AS container_id,
+            co.name AS object_name,
+            co.objtype_id as object_id
             FROM EntityLink AS el
             INNER JOIN Object AS po ON el.parent_entity_id = po.id
             INNER JOIN Object AS co ON el.child_entity_id = co.id
@@ -837,14 +839,13 @@ class DB(object):
         cur.close()
 
         for rec in raw:
-            pid, pname, cid, cname = rec
+            pid, pname, ptype, cid, cname, ctype = rec
             data = json.loads(rest.check_device(pname))['results']
             if not data:
-                logger.info(f'Unknown chassis {pname}')
+                logger.info(f'Unknown chassis {pname} type {ptype}')
                 continue
             if data[0]['location']['slug'] == 'nue-unknown-location':
                 logger.info(f'Unknown location for chassis {pname}')
-            pp.pprint(rec)
 
     def get_devices(self):
         self.all_ports = self.get_ports()
@@ -1518,7 +1519,7 @@ if __name__ == '__main__':
 
     # Initialize logging platform
     logger = logging.getLogger('racktables2netbox')
-    logger.setLevel(logging.DEBUG)
+    logger.setLevel(logging.INFO)
 
     # Log to file
     fh = logging.FileHandler(config['Log']['LOGFILE'])
