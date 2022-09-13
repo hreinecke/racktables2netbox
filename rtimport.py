@@ -965,7 +965,10 @@ class DB(object):
                     hardware = hardware.replace('\t', ' ')
 
             if rattr_name == 'HW type':
-                hardware = rtype
+                hardware = (rtype.lstrip('[')).rstrip(']')
+                if '|' in hardware:
+                    hardware, url = hardware.split('|')
+                    hardware = hardware.rstrip(' ')
                 if '%GSKIP%' in hardware:
                     vendor, hardware = hardware.split('%GSKIP%')
                 if '%GPASS%' in hardware:
