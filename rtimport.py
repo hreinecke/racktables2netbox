@@ -824,15 +824,20 @@ class DB(object):
         :return:
         """
         cur = self.con.cursor()
-        q = """SELECT parent_entity_id AS container_id, child_entity_id AS object_id
-                FROM EntityLink WHERE child_entity_type='object' AND parent_entity_type = 'object'"""
+        q = """SELECT parent_entity_id AS container_id,
+            po.name AS container_name,
+            child_entity_id AS object_id,
+            co.name AS object_name,
+            FROM EntityLink AS el
+            INNER JOIN Object AS po ON el.parent_entity_id = po.id
+            INNER JOIN Object AS co ON el.child_entity_id = co.id
+            WHERE el.child_entity_type='object' AND el.parent_entity_type = 'object'"""
         cur.execute(q)
         raw = cur.fetchall()
         cur.close()
 
         for rec in raw:
-            container_id, object_id = rec
-            self.container_map.update({object_id: container_id})
+            pp.pprint(rec)
 
     def get_devices(self):
         self.all_ports = self.get_ports()
@@ -874,7 +879,7 @@ class DB(object):
                     LEFT JOIN Rack ON RackSpace.rack_id = Rack.id
                     LEFT JOIN Location ON Rack.location_id = Location.id
                     WHERE Object.id = %s
-                    AND Object.objtype_id not in (1,2,3,9,10,11,1504,1505,1506,1507,1560,1561,1562,50275)""" % dev_id
+                    AND Object.objtype_id not in (1,2,3,9,10,11,1506,1507,1560,1561,1562,50275)""" % dev_id
 
             cur.execute(q)
             data = cur.fetchall()
@@ -1141,6 +1146,37 @@ class DB(object):
         pp.pprint(f'tags: {tags}')
         return tags
 
+    def get_device_interfaces(self, id):
+        cur = self.con.cursor()
+        q = """SELECT
+	    Port.id, Port.name, Port.object_id,
+	    Object.name AS object_name,
+	    Port.l2address, Port.label,
+	    Port.reservation_comment,
+	    Port.iif_id, Port.type AS oif_id,
+	    (SELECT PortInnerInterface.iif_name FROM PortInnerInterface WHERE PortInnerInterface.id = Port.iif_id) AS iif_name,
+	    (SELECT PortOuterInterface.oif_name FROM PortOuterInterface WHERE PortOuterInterface.id = Port.type) AS oif_name,
+	    IF(la.porta, pa.id, pb.id) AS remote_id,
+	    IF(la.porta, pa.name, pb.name) AS remote_name,
+	    IF(la.porta, pa.object_id, pb.object_id) AS remote_object_id,
+	    IF(la.porta, oa.name, ob.name) AS remote_object_name,
+	    IF(la.porta, oa.objtype_id, ob.objtype_id) AS remote_object_tid,
+            FROM Port
+	    INNER JOIN Object ON Port.object_id = Object.id
+	    LEFT JOIN Link AS la ON la.porta = Port.id
+	    LEFT JOIN Port AS pa ON pa.id = la.portb
+	    LEFT JOIN Object AS oa ON pa.object_id = oa.id
+	    LEFT JOIN Link AS lb on lb.portb = Port.id
+	    LEFT JOIN Port AS pb ON pb.id = lb.porta
+	    LEFT JOIN Object AS ob ON pb.object_id = ob.id
+            WHERE Port.object_id = %d""" % id
+        cur.execute()
+        data = cur.fetchall()
+        cur.close()
+
+        for line in data:
+            pp.pprint(line)
+
     def get_device_to_ip(self):
         if not self.con:
             self.connect()
@@ -1383,7 +1419,8 @@ class DB(object):
             #self.get_locations()
             #self.get_racks()
             #self.get_hardware()
-            self.get_devices()
+            #self.get_devices()
+            self.get_container_map()
 
     @staticmethod
     def get_ports_by_device(ports, device_id):
