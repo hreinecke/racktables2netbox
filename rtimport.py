@@ -749,6 +749,7 @@ class DB(object):
                 role_data.update({'name': value})
                 role_data.update({'slug': slug})
                 rest.post_device_role(role_data)
+        pp.pprint(self.device_roles)
 
     def get_tags(self):
         cur = self.con.cursor()
@@ -1079,10 +1080,7 @@ class DB(object):
         except:
             pass
         if data:
-            if 'tags' not in data[0]:
-                rest.patch_device(data[0]['id'], devicedata)
-            else:
-                pp.pprint('Already present')
+            pp.pprint('Already present')
             return
 
         if 'location' not in devicedata:
@@ -1097,7 +1095,7 @@ class DB(object):
         dev_roles = (json.loads(rest.check_device_role(role_slug)))['results']
         devicedata.update({'device_role': dev_roles[0]['id']})
         devicedata.update({'tenant': 1})
-        devicedata.update({'face': 'front'})
+        # devicedata.update({'face': 'front'})
 
         pp.pprint('Uploading device')
         pp.pprint(devicedata)
