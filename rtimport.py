@@ -1182,6 +1182,49 @@ class DB(object):
         pp.pprint(f'tags: {tags}')
         return tags
 
+    def get_interface_types(self):
+        netbox_if_types = ('virtual', 'bridge', 'lag',
+                           '100base-tx', '1000base-t',
+                           '2.5gbase-t', '5gbase-t',
+                           '10gbase-t', '10gbase-cx4',
+                           '1000base-x-gbic', '1000base-x-sfp',
+                           '10gbase-x-sfpp', '10gbase-x-xfp',
+                           '10gbase-x-xenpak', '10gbase-x-x2',
+                           '25gbase-x-sfp28', '50gbase-x-sfp56',
+                           '40gbase-x-qsfpp', '50gbase-x-sfp28',
+                           '100gbase-x-cfp', '100gbase-x-cfp2',
+                           '200gbase-x-cfp2', '100gbase-x-cfp4',
+                           '100gbase-x-cpak', '100gbase-x-qsfp28',
+                           '200gbase-x-qsfp56',
+                           '400gbase-x-qsfpdd', '400gbase-x-osfp',
+                           'ieee802.11a', 'ieee802.11g', 'ieee802.11n',
+                           'ieee802.11ac', 'ieee802.11ad', 'ieee802.11ax', 'ieee802.15.1',
+                           'gsm', 'cdma', 'lte',
+                           'sonet-oc3', 'sonet-oc12', 'sonet-oc48', 'sonet-oc192', 'sonet-oc768',
+                           'sonet-oc1920', 'sonet-oc3840',
+                           '1gfc-sfp', '2gfc-sfp', '4gfc-sfp', '8gfc-sfpp', '16gfc-sfpp',
+                           '32gfc-sfp28', '64gfc-qsfpp', '128gfc-qsfp28',
+                           'infiniband-sdr', 'infiniband-ddr', 'infiniband-qdr', 'infiniband-fdr10',
+                           'infiniband-fdr', 'infiniband-edr', 'infiniband-hdr', 'infiniband-ndr',
+                           'infiniband-xdr',
+                           't1', 'e1', 't3', 'e3', 'xdsl', 'docsis',
+                           'gpon', 'xg-pon', 'xgs-pon', 'ng-pon2', 'epon', '10g-epon',
+                           'cisco-stackwise', 'cisco-stackwise-plus',
+                           'cisco-flexstack', 'cisco-flexstack-plus',
+                           'cisco-stackwise-80', 'cisco-stackwise-160',
+                           'cisco-stackwise-320', 'cisco-stackwise-480',
+                           'juniper-vcp',
+                           'extreme-summitstack', 'extreme-summitstack-128',
+                           'extreme-summitstack-256', 'extreme-summitstack-512', 'other')
+        cur = self.con.cursor()
+        q = 'SELECT id, iif_name from PortOuterInterface'
+        cur.execute(q)
+        dat = cur.fetchall()
+        cur.close()
+
+        for line in data:
+            pp.pprint(line)
+
     def link_interfaces(self):
         cur = self.con.cursor()
         # get object IDs
@@ -1224,7 +1267,12 @@ class DB(object):
         cur.close()
 
         for line in data:
-            pp.pprint(line)
+            id, name, object_id, object_name, l2address, label, comment, iif_id, oif_id, iif_name, oif_name, remote_id, remote_name, remote_object_id, remote_object_name, remote_object_tid = line
+            data = json.loads(rest.check_device(object_name))['result']
+            if not data:
+                logger.msg(f'Device {object_name} not found for interface {name}')
+                continue
+            pp.pprint(f'Interface {name} on device {object_name}: MAC {l2address}')
 
     def get_device_to_ip(self):
         if not self.con:
@@ -1463,6 +1511,7 @@ class DB(object):
             self.connect()
 
         with self.con:
+            self.get_interface_types()
             #self.get_device_roles()
             #self.get_tags()
             #self.get_locations()
