@@ -308,6 +308,12 @@ class REST(object):
         data = self.fetcher(url)
         return data
 
+    def check_vmcluster(self, dev):
+        url = f'{self.base_url}/virtualization/clusters/?name={dev}'
+        logger.info('checking vmcluster from {}'.format(url))
+        data = self.fetcher(url)
+        return data
+
     def check_platform(self, plat):
         url = self.base_url + '/dcim/platforms/?slug=' + plat
         logger.info('Checking platform from {}'.format(url))
@@ -840,6 +846,12 @@ class DB(object):
 
         for rec in raw:
             pid, pname, ptype, cid, cname, ctype = rec
+            if ptype == '1505':
+                cdata = json.loads(rest.check_vmcluster(cname))['results']
+            else:
+                cdata = json.loads(rest.check_device(cname))['results']
+            if not cdata:
+                continue
             data = json.loads(rest.check_device(pname))['results']
             if not data:
                 logger.info(f'Unknown chassis {pname} type {ptype}')
