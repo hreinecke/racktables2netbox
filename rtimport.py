@@ -1182,6 +1182,19 @@ class DB(object):
         pp.pprint(f'tags: {tags}')
         return tags
 
+    def link_interfaces(self):
+        cur = self.con.cursor()
+        # get object IDs
+        q = 'SELECT id FROM Object'
+        cur.execute(q)
+        idsx = cur.fetchall()
+        cur.close()
+
+        ids = [x[0] for x in idsx]
+
+        for dev_id in ids:
+            self.get_device_interfaces(dev_id)
+
     def get_device_interfaces(self, id):
         cur = self.con.cursor()
         q = """SELECT
@@ -1450,20 +1463,14 @@ class DB(object):
             self.connect()
 
         with self.con:
-            self.get_device_roles()
-            self.get_tags()
+            #self.get_device_roles()
+            #self.get_tags()
             #self.get_locations()
             #self.get_racks()
             #self.get_hardware()
             #self.get_devices()
-            self.get_container_map()
-
-    @staticmethod
-    def get_ports_by_device(ports, device_id):
-        device_ports = []
-        for port in ports:
-            if port[4] == device_id:
-                device_ports.append(port)
+            #self.get_container_map()
+            self.link_interfaces()
 
         return device_ports
 
