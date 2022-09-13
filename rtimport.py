@@ -1217,9 +1217,9 @@ class DB(object):
                            'extreme-summitstack', 'extreme-summitstack-128',
                            'extreme-summitstack-256', 'extreme-summitstack-512', 'other')
         cur = self.con.cursor()
-        q = 'SELECT id, iif_name from PortOuterInterface'
+        q = 'SELECT id, oif_name from PortOuterInterface'
         cur.execute(q)
-        dat = cur.fetchall()
+        data = cur.fetchall()
         cur.close()
 
         for line in data:
@@ -1252,7 +1252,7 @@ class DB(object):
 	    IF(la.porta, pa.name, pb.name) AS remote_name,
 	    IF(la.porta, pa.object_id, pb.object_id) AS remote_object_id,
 	    IF(la.porta, oa.name, ob.name) AS remote_object_name,
-	    IF(la.porta, oa.objtype_id, ob.objtype_id) AS remote_object_tid,
+	    IF(la.porta, oa.objtype_id, ob.objtype_id) AS remote_object_tid
             FROM Port
 	    INNER JOIN Object ON Port.object_id = Object.id
 	    LEFT JOIN Link AS la ON la.porta = Port.id
@@ -1262,13 +1262,16 @@ class DB(object):
 	    LEFT JOIN Port AS pb ON pb.id = lb.porta
 	    LEFT JOIN Object AS ob ON pb.object_id = ob.id
             WHERE Port.object_id = %d""" % id
-        cur.execute()
+        cur.execute(q)
         data = cur.fetchall()
         cur.close()
 
         for line in data:
             id, name, object_id, object_name, l2address, label, comment, iif_id, oif_id, iif_name, oif_name, remote_id, remote_name, remote_object_id, remote_object_name, remote_object_tid = line
-            data = json.loads(rest.check_device(object_name))['result']
+            if not object_name:
+                logger.msg(f'No device name for interface {name}')
+                continue
+            data = json.loads(rest.check_device(object_name))['results']
             if not data:
                 logger.msg(f'Device {object_name} not found for interface {name}')
                 continue
