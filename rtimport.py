@@ -131,6 +131,12 @@ class REST(object):
         logger.info('Posting device data to {}'.format(url))
         self.uploader(data, url)
 
+    def post_vmcluster(self, data):
+        url = f'{self.base_url}/virtualization/clusterss/'
+        logger.info('Posting VM data to {}'.format(url))
+        data = self.uploader(data, url)
+        return data
+
     def post_vm(self, data):
         url = f'{self.base_url}/virtualization/virtual-machines/'
         logger.info('Posting VM data to {}'.format(url))
@@ -311,6 +317,12 @@ class REST(object):
     def check_device(self, dev):
         url = self.base_url + '/dcim/devices/?name=' + dev
         logger.info('Checking device from {}'.format(url))
+        data = self.fetcher(url)
+        return data
+
+    def check_vmcluster_type(self, type):
+        url = f'{self.base_url}/virtualization/clusters-types/?slug={type}'
+        logger.info('checking vmcluster from {}'.format(url))
         data = self.fetcher(url)
         return data
 
@@ -1233,19 +1245,16 @@ class DB(object):
             role_slug = self.device_roles[parent_type]
             if role_slug == 'vm-resource-pool':
                 continue
-            if role_slug != 'vm-cluster':
-                logger.info(f'Parent {parent_name} for VM {name} role {role_slug} is not a VM cluster!')
-                continue
             if not 'cluster' in devicedata:
                 parent_data = json.loads(rest.check_vmcluster(parent_name))['results']
                 if not parent_data:
-                    logger.info(f'Parent {parent_name} for VM {name} not found')
-                    continue
+                    self.create_vmhost(parent_name)
+                    parent_data = json.loads(rest.check_vmcluster(parent_name))['results']
                 devicedata.update({'cluster': parent_data[0]['id']})
                 devicedata.update({'type': parent_data[0]['type']['id']})
                 devicedata.update({'site': parent_data[0]['site']['id']})
             if attr_name == 'Orthos-ID':
-                orthos_id = rattr_value
+                orthos_id = attr_value
                 if 'custom_fields' in devicedata:
                     custom = devicedata.pop('custom_fields', None)
                 else:
@@ -1279,7 +1288,7 @@ class DB(object):
 
             pp.pprint(row)
         if not devicedata:
-            continue
+            return
         tag_data = []
         for tag in tags:
             tag_elem = {}
@@ -1308,6 +1317,31 @@ class DB(object):
             assignment_data.update({'role': 1})
             assignment_data.update({'priority': 'primary'})
             rest.post_tenancy_assignments(assignment_data)
+
+    def create_vmhost(self, vmhost, tags):
+        data = json.loads(rest.check_device(vmhost))['results']
+        if not data:
+            logger.info(f'Device {vmhost} not found')
+            return []
+        type_data = json.loads(rest.check_vmcluster_type('kvm-host'))['results']
+        if not type_data:
+            logger.info("VM Cluster type 'KVM host' not found")
+            return []
+        
+        devicedata = {}
+        devicedata.update({'name': vmhost})
+        devicedata.update({'type': type_data[0]['id']})
+        devicedata.update({'site': data[0]['site']['id']})
+        tag_data = []
+        for tag in tags:
+            tag_elem = {}
+            tag_elem.update({'name': tag})
+            tag_elem.update({'slug': slugify.slugify(tag)})
+            tag_data.append(tag_elem)
+        if tag_data:
+            devicedata.update({'tags': tag_data})
+
+        rest.post_vmcluster(devicedata)
 
     def get_device_tags(self, id):
         cur = self.con.cursor()
