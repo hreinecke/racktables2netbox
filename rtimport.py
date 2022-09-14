@@ -1184,21 +1184,23 @@ class DB(object):
 
             cur = self.con.cursor()
             q = """Select
-                    Object.objtype_id,
-                    Object.name as Description,
-                    Object.label as Name,
-                    Object.asset_no as Asset,
+                    co.objtype_id,
+                    co.name as Description,
+                    co.label as Name,
+                    co.asset_no as Asset,
                     Attribute.name as Attrib,
                     AttributeValue.uint_value as AttrValue,
                     AttributeValue.string_value as AttrString,
                     Dictionary.dict_value as Type,
-                    Object.comment as Comment,
-                    EntityLink.parent_entity_id,
-                    FROM Object
-                    LEFT JOIN AttributeValue ON Object.id = AttributeValue.object_id
+                    co.comment as Comment,
+                    po.objtype_id as ContainerType,
+                    po.name as ContainerName
+                    FROM Object AS co
+                    LEFT JOIN AttributeValue ON co.id = AttributeValue.object_id
                     LEFT JOIN Attribute ON AttributeValue.attr_id = Attribute.id
-                    LEFT JOIN EntityLink ON Object.id = EntityLink.child_entity_id
+                    LEFT JOIN EntityLink AS el ON co.id = el.child_entity_id
                     LEFT JOIN Dictionary ON Dictionary.dict_key = AttributeValue.uint_value
+                    INNER JOIN Object AS po ON el.parent_entity_id = po.id
                     WHERE Object.id = %s""" % dev_id
 
             cur.execute(q)
@@ -1715,8 +1717,6 @@ if __name__ == '__main__':
     rest = REST()    
     racktables = DB()
     racktables.get_data()
-    #racktables.get_chassis()
-    #racktables.get_vmhosts()
     #racktables.get_device_to_ip()
     #racktables.get_pdus()
     #racktables.get_patch_panels()
