@@ -116,6 +116,11 @@ class REST(object):
         logger.info('Posting IP data to {}'.format(url))
         self.uploader(data, url)
 
+    def post_interface(self, data):
+        url = f'{self.base_url}/dcim/interfaces/'
+        logger.info('Posting Interface data to {}'.format(url))
+        self.uploader(data, url)
+
     def post_tags(self, data):
         url = f'{self.base_url}/extras/tags/'
         logger.info('Posting tag data to {}'.format(url))
@@ -1502,9 +1507,25 @@ class DB(object):
                 continue
             data = json.loads(rest.check_device(object_name))['results']
             if not data:
-                logger.msg(f'Device {object_name} not found for interface {name}')
+                data = json.loads(rest.check_vm(object_name))['results']
+                if not data:
+                    logger.msg(f'Device {object_name} not found for interface {name}')
+                    continue
+            if_type = self.interface_map[oif_name]
+            if if_type == 'other':
                 continue
-            pp.pprint(f'Interface {name} on device {object_name}: MAC {l2address}')
+            if_data = {}
+            if_data.update({'device': data[0]['id']})
+            if_data.update({'name': name})
+            if_data.update({'label': label})
+            if_data.update({'type': if_type})
+            if 'gfc' in if_type:
+                if_data.update({'wwn': ':'.join(l2address[i:i+2] for i in range(0,16,2))})
+            else:
+                if_data.update({'mac_address': ':'.join(l2address[i:i+2] for i in range(0,12,2))})
+            
+            pp.pprint(if_date)
+            rest.post_interface(if_data)
 
     def get_device_to_ip(self):
         if not self.con:
