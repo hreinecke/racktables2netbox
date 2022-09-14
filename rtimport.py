@@ -1206,18 +1206,22 @@ class DB(object):
             cur.execute(q)
             data = cur.fetchall()
             cur.close()
+            devicedata = {}
             for row in data:
                 dev_type, name, label, asset, \
                     attr_name, attr_value, attr_str, type, comment, \
                     parent_type, parent_name = row
                 if not 'cluster' in devicedata:
-                    parent_data = json.loads(rest.check_device(parent_name))['results']
+                    parent_data = json.loads(rest.check_vmcluster(parent_name))['results']
                     if not parent_data:
                         logger.info(f'Parent {parent_name} for VM {name} not found')
                         continue
                     devicedata.update({'cluster': parent_data[0]['id']})
                 role_slug = self.device_roles[parent_type]
-                pp.pprint(f'Checking VM {name}' on cluster {parent_name} role {role_slug}')
+                if role_slug != 'vm-cluster':
+                    logger.info(f'Parent {parent_name} for VM {name} is not a VM cluster!')
+                else:
+                    pp.pprint(f'Checking VM {name} on cluster {parent_name} role {role_slug}')
 
     def get_device_tags(self, id):
         cur = self.con.cursor()
