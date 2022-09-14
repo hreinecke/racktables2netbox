@@ -1201,13 +1201,23 @@ class DB(object):
                     LEFT JOIN EntityLink AS el ON co.id = el.child_entity_id
                     LEFT JOIN Dictionary ON Dictionary.dict_key = AttributeValue.uint_value
                     INNER JOIN Object AS po ON el.parent_entity_id = po.id
-                    WHERE Object.id = %s""" % dev_id
+                    WHERE co.id = %s""" % dev_id
 
             cur.execute(q)
             data = cur.fetchall()
             cur.close()
             for row in data:
-                pp.pprint(row)
+                dev_type, name, label, asset, \
+                    attr_name, attr_value, attr_str, type, comment, \
+                    parent_type, parent_name = row
+                if not 'cluster' in devicedata:
+                    parent_data = json.loads(rest.check_device(parent_name))['results']
+                    if not parent_data:
+                        logger.info(f'Parent {parent_name} for VM {name} not found')
+                        continue
+                    devicedata.update({'cluster': parent_data[0]['id']})
+                role_slug = self.device_roles[parent_type]
+                pp.pprint(f'Checking VM {name}' on cluster {parent_name} role {role_slug}')
 
     def get_device_tags(self, id):
         cur = self.con.cursor()
