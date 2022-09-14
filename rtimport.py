@@ -320,6 +320,12 @@ class REST(object):
         data = self.fetcher(url)
         return data
 
+    def check_vm(self, dev):
+        url = f'{self.base_url}/virtualization/virtual-machines/?name={dev}'
+        logger.info('checking vmcluster from {}'.format(url))
+        data = self.fetcher(url)
+        return data
+
     def check_platform(self, plat):
         url = self.base_url + '/dcim/platforms/?slug=' + plat
         logger.info('Checking platform from {}'.format(url))
@@ -1216,7 +1222,7 @@ class DB(object):
             userdata = {}
             for row in data:
                 dev_type, name, label, asset, \
-                    attr_name, attr_value, attr_str, attr_label, comment, \
+                    attr_name, attr_value, attr_str, attr_label, note, \
                     parent_type, parent_name = row
                 if not 'name' in devicedata:
                     devicedata.update({'name': name})
