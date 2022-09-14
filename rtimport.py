@@ -1234,6 +1234,7 @@ class DB(object):
                 self.process_vm_data(data, dev_id, tags)
 
     def process_vm_data(self, data, dev_id, tags):
+        parentdata = {}
         devicedata = {}
         userdata = {}
         for row in data:
@@ -1248,7 +1249,7 @@ class DB(object):
             if not 'cluster' in devicedata:
                 parent_data = json.loads(rest.check_vmcluster(parent_name))['results']
                 if not parent_data:
-                    self.create_vmhost(parent_name)
+                    self.create_vmhost(parent_name, tags)
                     parent_data = json.loads(rest.check_vmcluster(parent_name))['results']
                 devicedata.update({'cluster': parent_data[0]['id']})
                 devicedata.update({'type': parent_data[0]['type']['id']})
@@ -1304,6 +1305,12 @@ class DB(object):
             pp.pprint('Uploading VM')
             rest.post_vm(devicedata)
             data = json.loads(rest.check_vm(devicedata['name']))['results']
+
+        if parentdata:
+            devicedata = {}
+            devicedata.update({'cluster': data[0]['id']})
+            logger.info(f'Linking device to VM Host')
+            rest.patch_device(parentdata[0]['id'], devicedata)
 
         if userdata:
             assignment_data = (json.loads(rest.check_tenancy_assignment(data[0]['id'])))['results']
