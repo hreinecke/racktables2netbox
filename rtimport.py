@@ -1167,6 +1167,46 @@ class DB(object):
             assignment_data.update({'priority': 'primary'})
             rest.post_tenancy_assignments(assignment_data)
 
+    def get_vms(self):
+        self.all_ports = self.get_ports()
+
+        cur = self.con.cursor()
+        # get object IDs
+        q = """SELECT id FROM Object WHERE objtype_id = '1504'"""
+        cur.execute(q)
+        idsx = cur.fetchall()
+        cur.close()
+
+        ids = [x[0] for x in idsx]
+
+        for dev_id in ids:
+            tags = self.get_device_tags(dev_id)
+
+            cur = self.con.cursor()
+            q = """Select
+                    Object.objtype_id,
+                    Object.name as Description,
+                    Object.label as Name,
+                    Object.asset_no as Asset,
+                    Attribute.name as Attrib,
+                    AttributeValue.uint_value as AttrValue,
+                    AttributeValue.string_value as AttrString,
+                    Dictionary.dict_value as Type,
+                    Object.comment as Comment,
+                    EntityLink.parent_entity_id,
+                    FROM Object
+                    LEFT JOIN AttributeValue ON Object.id = AttributeValue.object_id
+                    LEFT JOIN Attribute ON AttributeValue.attr_id = Attribute.id
+                    LEFT JOIN EntityLink ON Object.id = EntityLink.child_entity_id
+                    LEFT JOIN Dictionary ON Dictionary.dict_key = AttributeValue.uint_value
+                    WHERE Object.id = %s""" % dev_id
+
+            cur.execute(q)
+            data = cur.fetchall()
+            cur.close()
+            for row in data:
+                pp.pprint(row)
+
     def get_device_tags(self, id):
         cur = self.con.cursor()
         q = """SELECT tt.id, tag FROM
@@ -1556,12 +1596,13 @@ class DB(object):
 
         with self.con:
             self.get_interface_types()
-            #self.get_device_roles()
+            self.get_device_roles()
             #self.get_tags()
             #self.get_locations()
             #self.get_racks()
             #self.get_hardware()
             #self.get_devices()
+            self.get_vms()
             #self.get_container_map()
             #self.link_interfaces()
 
