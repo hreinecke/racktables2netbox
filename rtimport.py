@@ -131,6 +131,12 @@ class REST(object):
         logger.info('Posting device data to {}'.format(url))
         self.uploader(data, url)
 
+    def post_vm(self, data):
+        url = f'{self.base_url}/virtualization/virtual-machines/'
+        logger.info('Posting VM data to {}'.format(url))
+        data = self.uploader(data, url)
+        return data
+
     def post_location(self, data):
         url = self.base_url + '/dcim/locations/'
         logger.info('Posting location data to {}'.format(url))
@@ -1207,9 +1213,10 @@ class DB(object):
             data = cur.fetchall()
             cur.close()
             devicedata = {}
+            userdata = {}
             for row in data:
                 dev_type, name, label, asset, \
-                    attr_name, attr_value, attr_str, type, comment, \
+                    attr_name, attr_value, attr_str, attr_label, comment, \
                     parent_type, parent_name = row
                 if not 'name' in devicedata:
                     devicedata.update({'name': name})
@@ -1227,7 +1234,71 @@ class DB(object):
                 if role_slug != 'vm-cluster':
                     logger.info(f'Parent {parent_name} for VM {name} role {role_slug} is not a VM cluster!')
                     continue
+                if attr_name == 'Orthos-ID':
+                    orthos_id = rattr_value
+                    if 'custom_fields' in devicedata:
+                        custom = devicedata.pop('custom_fields', None)
+                    else:
+                        custom = {}
+                        custom.update({'orthos_id': orthos_id})
+                        devicedata.update({'custom_fields': custom})
+                if attr_name == 'UUID':
+                    if 'custom_fields' in devicedata:
+                        custom = devicedata.pop('custom_fields', None)
+                    else:
+                        custom = {}
+                    custom.update({'uuid': attr_str})
+                    devicedata.update({'custom_fields': custom})
+                if attr_name == 'contact person':
+                    contact = attr_str
+                    if contact and not userdata:
+                                            userdata = (json.loads(rest.check_tenancy_user(contact)))['results']
+                    if not userdata:
+                        contact_data = {}
+                        contact_data.update({'name': contact})
+                        if '@' not in contact:
+                            email = contact + '@suse.de'
+                        else:
+                            email = contact
+                        contact_data.update({'email': email})
+                        rest.post_tenancy_users(contact_data)
+                        userdata = (json.loads(rest.check_tenancy_user(email)))['results']
+                if note:
+                    note = note.replace('\n', ' ')
+                    devicedata.update({'notes': note})
+
+
                 pp.pprint(row)
+            if not devicedata:
+                continue
+            tag_data = []
+            for tag in tags:
+                tag_elem = {}
+                tag_elem.update({'name': tag})
+                tag_elem.update({'slug': slugify.slugify(tag)})
+                tag_data.append(tag_elem)
+            if tag_data:
+                devicedata.update({'tags': tag_data})
+
+            pp.pprint(devicedata)
+            data = json.loads(rest.check_vm(devicedata['name']))['results']
+            if data:
+                continue
+            pp.pprint('Uploading VM')
+            data = json.loads(rest.post_vm(devicedata))['results']
+
+            if userdata:
+                assignment_data = (json.loads(rest.check_tenancy_assignment(data[0]['id'])))['results']
+                if assignment_data:
+                    return
+                assignment_data = {}
+                assignment_data.update({'content_type': 'virtualization.virtualmachine'})
+                assignment_data.update({'object_id': data[0]['id']})
+                assignment_data.update({'contact': userdata[0]['id']})
+                # FIXME: dynamic user roles!
+                assignment_data.update({'role': 1})
+                assignment_data.update({'priority': 'primary'})
+                rest.post_tenancy_assignments(assignment_data)
 
     def get_device_tags(self, id):
         cur = self.con.cursor()
