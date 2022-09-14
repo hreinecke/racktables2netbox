@@ -1211,17 +1211,23 @@ class DB(object):
                 dev_type, name, label, asset, \
                     attr_name, attr_value, attr_str, type, comment, \
                     parent_type, parent_name = row
+                if not 'name' in devicedata:
+                    devicedata.update({'name': name})
                 if not 'cluster' in devicedata:
                     parent_data = json.loads(rest.check_vmcluster(parent_name))['results']
                     if not parent_data:
                         logger.info(f'Parent {parent_name} for VM {name} not found')
                         continue
                     devicedata.update({'cluster': parent_data[0]['id']})
+                    devicedata.update({'type': parent_data[0]['type']['id']})
+                    devicedata.update({'site': parent_data[0]['site']['id']})
                 role_slug = self.device_roles[parent_type]
+                if role_slug == 'vm-resource-pool':
+                    continue
                 if role_slug != 'vm-cluster':
-                    logger.info(f'Parent {parent_name} for VM {name} is not a VM cluster!')
-                else:
-                    pp.pprint(f'Checking VM {name} on cluster {parent_name} role {role_slug}')
+                    logger.info(f'Parent {parent_name} for VM {name} role {role_slug} is not a VM cluster!')
+                    continue
+                pp.pprint(row)
 
     def get_device_tags(self, id):
         cur = self.con.cursor()
