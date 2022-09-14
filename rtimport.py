@@ -376,7 +376,8 @@ class DB(object):
         self.container_map = {}
         self.building_room_map = {}
         self.device_roles = {}
-        self.interface_map = {}
+        self.interface_types = {}
+        self.interface_speeds = {}
 
     def connect(self):
         """
@@ -1419,50 +1420,73 @@ class DB(object):
         for line in data:
             id, oif_name = line
             if '100Base' in oif_name:
-                self.interface_map.update({oif_name: '100base-tx'})
+                self.interface_types.update({oif_name: '100base-tx'})
             elif '1000Base-T' in oif_name:
-                self.interface_map.update({oif_name: '1000base-t'})
+                self.interface_types.update({oif_name: '1000base-t'})
             elif '1000Base' in oif_name:
                 # We don't do GBICs anymore :-)
-                self.interface_map.update({oif_name: '1000base-x-sfp'})
+                self.interface_types.update({oif_name: '1000base-x-sfp'})
             elif 'empty SFP-1000' in oif_name:
-                self.interface_map.update({oif_name: '1000base-x-sfp'})
+                self.interface_types.update({oif_name: '1000base-x-sfp'})
             elif '10GBase-CX4'in oif_name:
-                self.interface_map.update({oif_name: '10gbase-cx4'})
+                self.interface_types.update({oif_name: '10gbase-cx4'})
             elif '10GBase-K' in oif_name:
-                self.interface_map.update({oif_name: '10gbase-cx4'})
+                self.interface_types.update({oif_name: '10gbase-cx4'})
             elif '10GBase-T' in oif_name:
-                self.interface_map.update({oif_name: '10gbase-t'})
+                self.interface_types.update({oif_name: '10gbase-t'})
             elif '10GBase' in oif_name:
-                self.interface_map.update({oif_name: '10gbase-x-sfpp'})
+                self.interface_types.update({oif_name: '10gbase-x-sfpp'})
             elif 'empty SFP+' in oif_name:
-                self.interface_map.update({oif_name: '10gbase-x-sfpp'})
+                self.interface_types.update({oif_name: '10gbase-x-sfpp'})
             elif '25GBase' in oif_name:
-                self.interface_map.update({oif_name: '25gbase-sfp28'})
+                self.interface_types.update({oif_name: '25gbase-sfp28'})
             elif '40GBase' in oif_name:
-                self.interface_map.update({oif_name: '40gbase-x-qsfpp'})
+                self.interface_types.update({oif_name: '40gbase-x-qsfpp'})
             elif '100GBase' in oif_name:
-                self.interface_map.update({oif_name: '100gbase-x-qsfp28'})
+                self.interface_types.update({oif_name: '100gbase-x-qsfp28'})
             elif 'empty QSFP' in oif_name:
-                self.interface_map.update({oif_name: '100gbase-x-qsfp28'})
+                self.interface_types.update({oif_name: '100gbase-x-qsfp28'})
             elif 'FC4G-SW' in oif_name:
-                self.interface_map.update({oif_name: '4gfc-sfp'})
+                self.interface_types.update({oif_name: '4gfc-sfp'})
             elif 'FC8G-SW' in oif_name:
-                self.interface_map.update({oif_name: '8gfc-sfpp'})
+                self.interface_types.update({oif_name: '8gfc-sfpp'})
             elif 'FC16G-SW' in oif_name:
-                self.interface_map.update({oif_name: '16gfc-sfpp'})
+                self.interface_types.update({oif_name: '16gfc-sfpp'})
             elif 'FC32G-SW' in oif_name:
-                self.interface_map.update({oif_name: '32gfc-sfp28'})
+                self.interface_types.update({oif_name: '32gfc-sfp28'})
             elif 'empty SFP28' in oif_name:
-                self.interface_map.update({oif_name: '25gbase-sfp28'})
+                self.interface_types.update({oif_name: '25gbase-sfp28'})
             else:
-                self.interface_map.update({oif_name: 'other'})
-        pp.pprint(self.interface_map)
+                self.interface_types.update({oif_name: 'other'})
 
-    def link_interfaces(self):
+        for if_type in self.interface_types.value():
+            if '100base' in if_type:
+                if_speed = 100
+            elif '1000base' in if_type:
+                if_speed = 1000
+            elif '10gbase' in if_type:
+                if_speed = 10000
+            elif '25gbase' in if_type:
+                if_speed = 25000
+            elif '40gbase' in if_type:
+                if_speed = 40000
+            elif '100gbase' in if_type:
+                if_speed = 100000
+            elif '4gfc' in if_type:
+                if_speed = 4000
+            elif '8gfc' in if_type:
+                if_speed = 8000
+            elif '16gfc' in if_type:
+                if_speed = 16000
+            elif '32gfc' in if_type:
+                if_speed = 32000
+            if if_speed:
+                self.interface_speeds.update({if_type: if_speed})
+
+    def get_switch_interfaces(self):
         cur = self.con.cursor()
         # get object IDs
-        q = 'SELECT id FROM Object'
+        q = """SELECT id FROM Object WHERE objtype_id in (7,8,798,1055,1507)'"""
         cur.execute(q)
         idsx = cur.fetchall()
         cur.close()
@@ -1470,9 +1494,9 @@ class DB(object):
         ids = [x[0] for x in idsx]
 
         for dev_id in ids:
-            self.get_device_interfaces(dev_id)
+            self.get_device_interfaces(dev_id, 8)
 
-    def get_device_interfaces(self, id):
+    def get_device_interfaces(self, id, dev_type):
         cur = self.con.cursor()
         q = """SELECT
 	    Port.id, Port.name, Port.object_id,
@@ -1511,14 +1535,17 @@ class DB(object):
                 if not data:
                     logger.msg(f'Device {object_name} not found for interface {name}')
                     continue
-            if_type = self.interface_map[oif_name]
+            if_type = self.interface_types[oif_name]
             if if_type == 'other':
                 continue
             if_data = {}
             if_data.update({'device': data[0]['id']})
             if_data.update({'name': name})
+            if not label:
+                label = name
             if_data.update({'label': label})
             if_data.update({'type': if_type})
+            if_date.update({'speed': self.interface_speeds[if_type]})
             if 'gfc' in if_type:
                 if_data.update({'wwn': ':'.join(l2address[i:i+2] for i in range(0,16,2))})
             else:
@@ -1771,8 +1798,9 @@ class DB(object):
             #self.get_racks()
             #self.get_hardware()
             #self.get_devices()
-            self.get_vms()
+            #self.get_vms()
             #self.get_container_map()
+            self.get_switch_interfaces()
             #self.link_interfaces()
 
     @staticmethod
