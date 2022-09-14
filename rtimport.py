@@ -132,7 +132,7 @@ class REST(object):
         self.uploader(data, url)
 
     def post_vmcluster(self, data):
-        url = f'{self.base_url}/virtualization/clusterss/'
+        url = f'{self.base_url}/virtualization/clusters/'
         logger.info('Posting VM data to {}'.format(url))
         data = self.uploader(data, url)
         return data
@@ -321,7 +321,7 @@ class REST(object):
         return data
 
     def check_vmcluster_type(self, type):
-        url = f'{self.base_url}/virtualization/clusters-types/?slug={type}'
+        url = f'{self.base_url}/virtualization/cluster-types/?slug={type}'
         logger.info('checking vmcluster from {}'.format(url))
         data = self.fetcher(url)
         return data
@@ -1251,6 +1251,9 @@ class DB(object):
                 if not parent_data:
                     self.create_vmhost(parent_name, tags)
                     parent_data = json.loads(rest.check_vmcluster(parent_name))['results']
+                if not parent_data:
+                    logger.info(f'failed to lookup parent {parent_name}')
+                    continue
                 devicedata.update({'cluster': parent_data[0]['id']})
                 devicedata.update({'type': parent_data[0]['type']['id']})
                 devicedata.update({'site': parent_data[0]['site']['id']})
@@ -1279,7 +1282,7 @@ class DB(object):
                         if '@' not in contact:
                             email = contact + '@suse.de'
                         else:
-                            email = contact
+                            email = contact.rstrip('.')
                         contact_data.update({'email': email})
                         rest.post_tenancy_users(contact_data)
                         userdata = (json.loads(rest.check_tenancy_user(email)))['results']
@@ -1289,6 +1292,8 @@ class DB(object):
 
             pp.pprint(row)
         if not devicedata:
+            return
+        if 'cluster' not in devicedata:
             return
         tag_data = []
         for tag in tags:
