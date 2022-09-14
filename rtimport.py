@@ -1218,47 +1218,51 @@ class DB(object):
             cur.execute(q)
             data = cur.fetchall()
             cur.close()
-            devicedata = {}
-            userdata = {}
-            for row in data:
-                dev_type, name, label, asset, \
-                    attr_name, attr_value, attr_str, attr_label, note, \
+            if data:
+                self.process_vm_data(data, dev_id, tags)
+
+    def process_vm_data(self, data, dev_id, tags):
+        devicedata = {}
+        userdata = {}
+        for row in data:
+            dev_type, name, label, asset, \
+                attr_name, attr_value, attr_str, attr_label, note, \
                     parent_type, parent_name = row
-                if not 'name' in devicedata:
-                    devicedata.update({'name': name})
-                if not 'cluster' in devicedata:
-                    parent_data = json.loads(rest.check_vmcluster(parent_name))['results']
-                    if not parent_data:
-                        logger.info(f'Parent {parent_name} for VM {name} not found')
-                        continue
-                    devicedata.update({'cluster': parent_data[0]['id']})
-                    devicedata.update({'type': parent_data[0]['type']['id']})
-                    devicedata.update({'site': parent_data[0]['site']['id']})
-                role_slug = self.device_roles[parent_type]
-                if role_slug == 'vm-resource-pool':
+            if not 'name' in devicedata:
+                devicedata.update({'name': name})
+            role_slug = self.device_roles[parent_type]
+            if role_slug == 'vm-resource-pool':
+                continue
+            if role_slug != 'vm-cluster':
+                logger.info(f'Parent {parent_name} for VM {name} role {role_slug} is not a VM cluster!')
+                continue
+            if not 'cluster' in devicedata:
+                parent_data = json.loads(rest.check_vmcluster(parent_name))['results']
+                if not parent_data:
+                    logger.info(f'Parent {parent_name} for VM {name} not found')
                     continue
-                if role_slug != 'vm-cluster':
-                    logger.info(f'Parent {parent_name} for VM {name} role {role_slug} is not a VM cluster!')
-                    continue
-                if attr_name == 'Orthos-ID':
-                    orthos_id = rattr_value
-                    if 'custom_fields' in devicedata:
-                        custom = devicedata.pop('custom_fields', None)
-                    else:
-                        custom = {}
-                        custom.update({'orthos_id': orthos_id})
-                        devicedata.update({'custom_fields': custom})
-                if attr_name == 'UUID':
-                    if 'custom_fields' in devicedata:
-                        custom = devicedata.pop('custom_fields', None)
-                    else:
-                        custom = {}
+                devicedata.update({'cluster': parent_data[0]['id']})
+                devicedata.update({'type': parent_data[0]['type']['id']})
+                devicedata.update({'site': parent_data[0]['site']['id']})
+            if attr_name == 'Orthos-ID':
+                orthos_id = rattr_value
+                if 'custom_fields' in devicedata:
+                    custom = devicedata.pop('custom_fields', None)
+                else:
+                    custom = {}
+                    custom.update({'orthos_id': orthos_id})
+                    devicedata.update({'custom_fields': custom})
+            if attr_name == 'UUID':
+                if 'custom_fields' in devicedata:
+                    custom = devicedata.pop('custom_fields', None)
+                else:
+                    custom = {}
                     custom.update({'uuid': attr_str})
                     devicedata.update({'custom_fields': custom})
-                if attr_name == 'contact person':
-                    contact = attr_str
-                    if contact and not userdata:
-                                            userdata = (json.loads(rest.check_tenancy_user(contact)))['results']
+            if attr_name == 'contact person':
+                contact = attr_str
+                if contact and not userdata:
+                    userdata = (json.loads(rest.check_tenancy_user(contact)))['results']
                     if not userdata:
                         contact_data = {}
                         contact_data.update({'name': contact})
@@ -1269,42 +1273,41 @@ class DB(object):
                         contact_data.update({'email': email})
                         rest.post_tenancy_users(contact_data)
                         userdata = (json.loads(rest.check_tenancy_user(email)))['results']
-                if note:
-                    note = note.replace('\n', ' ')
-                    devicedata.update({'notes': note})
+            if note:
+                note = note.replace('\n', ' ')
+                devicedata.update({'notes': note})
 
-
-                pp.pprint(row)
-            if not devicedata:
-                continue
-            tag_data = []
-            for tag in tags:
-                tag_elem = {}
-                tag_elem.update({'name': tag})
-                tag_elem.update({'slug': slugify.slugify(tag)})
-                tag_data.append(tag_elem)
+            pp.pprint(row)
+        if not devicedata:
+            continue
+        tag_data = []
+        for tag in tags:
+            tag_elem = {}
+            tag_elem.update({'name': tag})
+            tag_elem.update({'slug': slugify.slugify(tag)})
+            tag_data.append(tag_elem)
             if tag_data:
                 devicedata.update({'tags': tag_data})
 
-            pp.pprint(devicedata)
-            data = json.loads(rest.check_vm(devicedata['name']))['results']
-            if data:
-                continue
+        pp.pprint(devicedata)
+        data = json.loads(rest.check_vm(devicedata['name']))['results']
+        if not data:
             pp.pprint('Uploading VM')
-            data = json.loads(rest.post_vm(devicedata))['results']
+            rest.post_vm(devicedata)
+            data = json.loads(rest.check_vm(devicedata['name']))['results']
 
-            if userdata:
-                assignment_data = (json.loads(rest.check_tenancy_assignment(data[0]['id'])))['results']
-                if assignment_data:
-                    return
-                assignment_data = {}
-                assignment_data.update({'content_type': 'virtualization.virtualmachine'})
-                assignment_data.update({'object_id': data[0]['id']})
-                assignment_data.update({'contact': userdata[0]['id']})
-                # FIXME: dynamic user roles!
-                assignment_data.update({'role': 1})
-                assignment_data.update({'priority': 'primary'})
-                rest.post_tenancy_assignments(assignment_data)
+        if userdata:
+            assignment_data = (json.loads(rest.check_tenancy_assignment(data[0]['id'])))['results']
+            if assignment_data:
+                return
+            assignment_data = {}
+            assignment_data.update({'content_type': 'virtualization.virtualmachine'})
+            assignment_data.update({'object_id': data[0]['id']})
+            assignment_data.update({'contact': userdata[0]['id']})
+            # FIXME: dynamic user roles!
+            assignment_data.update({'role': 1})
+            assignment_data.update({'priority': 'primary'})
+            rest.post_tenancy_assignments(assignment_data)
 
     def get_device_tags(self, id):
         cur = self.con.cursor()
