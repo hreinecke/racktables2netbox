@@ -1244,7 +1244,7 @@ class DB(object):
                 self.interface_map.update({oif_name: '10gbase-x-sfpp'})
             elif 'empty SFP+' in oif_name:
                 self.interface_map.update({oif_name: '10gbase-x-sfpp'})
-            elif '25Gbase' in oif_name:
+            elif '25GBase' in oif_name:
                 self.interface_map.update({oif_name: '25gbase-sfp28'})
             elif '40GBase' in oif_name:
                 self.interface_map.update({oif_name: '40gbase-x-qsfpp'})
@@ -1264,7 +1264,7 @@ class DB(object):
                 self.interface_map.update({oif_name: '25gbase-sfp28'})
             else:
                 self.interface_map.update({oif_name: 'other'})
-            pp.pprint(self.interface_map)
+        pp.pprint(self.interface_map)
 
     def link_interfaces(self):
         cur = self.con.cursor()
@@ -1564,8 +1564,6 @@ class DB(object):
             #self.get_devices()
             #self.get_container_map()
             #self.link_interfaces()
-
-        return device_ports
 
     @staticmethod
     def get_port_by_id(ports, port_id):
