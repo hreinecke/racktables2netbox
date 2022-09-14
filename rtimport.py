@@ -347,6 +347,7 @@ class DB(object):
         self.container_map = {}
         self.building_room_map = {}
         self.device_roles = {}
+        self.interface_map = {}
 
     def connect(self):
         """
@@ -1223,7 +1224,47 @@ class DB(object):
         cur.close()
 
         for line in data:
-            pp.pprint(line)
+            id, oif_name = line
+            if '100Base' in oif_name:
+                self.interface_map.update({oif_name: '100base-tx'})
+            elif '1000Base-T' in oif_name:
+                self.interface_map.update({oif_name: '1000base-t'})
+            elif '1000Base' in oif_name:
+                # We don't do GBICs anymore :-)
+                self.interface_map.update({oif_name: '1000base-x-sfp'})
+            elif 'empty SFP-1000' in oif_name:
+                self.interface_map.update({oif_name: '1000base-x-sfp'})
+            elif '10GBase-CX4'in oif_name:
+                self.interface_map.update({oif_name: '10gbase-cx4'})
+            elif '10GBase-K' in oif_name:
+                self.interface_map.update({oif_name: '10gbase-cx4'})
+            elif '10GBase-T' in oif_name:
+                self.interface_map.update({oif_name: '10gbase-t'})
+            elif '10GBase' in oif_name:
+                self.interface_map.update({oif_name: '10gbase-x-sfpp'})
+            elif 'empty SFP+' in oif_name:
+                self.interface_map.update({oif_name: '10gbase-x-sfpp'})
+            elif '25Gbase' in oif_name:
+                self.interface_map.update({oif_name: '25gbase-sfp28'})
+            elif '40GBase' in oif_name:
+                self.interface_map.update({oif_name: '40gbase-x-qsfpp'})
+            elif '100GBase' in oif_name:
+                self.interface_map.update({oif_name: '100gbase-x-qsfp28'})
+            elif 'empty QSFP' in oif_name:
+                self.interface_map.update({oif_name: '100gbase-x-qsfp28'})
+            elif 'FC4G-SW' in oif_name:
+                self.interface_map.update({oif_name: '4gfc-sfp'})
+            elif 'FC8G-SW' in oif_name:
+                self.interface_map.update({oif_name: '8gfc-sfpp'})
+            elif 'FC16G-SW' in oif_name:
+                self.interface_map.update({oif_name: '16gfc-sfpp'})
+            elif 'FC32G-SW' in oif_name:
+                self.interface_map.update({oif_name: '32gfc-sfp28'})
+            elif 'empty SFP28' in oif_name:
+                self.interface_map.update({oif_name: '25gbase-sfp28'})
+            else:
+                self.interface_map.update({oif_name: 'other'})
+            pp.pprint(self.interface_map)
 
     def link_interfaces(self):
         cur = self.con.cursor()
@@ -1522,7 +1563,7 @@ class DB(object):
             #self.get_hardware()
             #self.get_devices()
             #self.get_container_map()
-            self.link_interfaces()
+            #self.link_interfaces()
 
         return device_ports
 
