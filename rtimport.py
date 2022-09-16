@@ -1459,7 +1459,7 @@ class DB(object):
             else:
                 self.interface_types.update({oif_name: 'other'})
 
-        for if_type in self.interface_types.value():
+        for if_type in self.interface_types.values():
             if '100base' in if_type:
                 if_speed = 100
             elif '1000base' in if_type:
@@ -1486,7 +1486,7 @@ class DB(object):
     def get_switch_interfaces(self):
         cur = self.con.cursor()
         # get object IDs
-        q = """SELECT id FROM Object WHERE objtype_id in (7,8,798,1055,1507)'"""
+        q = """SELECT id FROM Object WHERE objtype_id in (7,8,798,1055,1507)"""
         cur.execute(q)
         idsx = cur.fetchall()
         cur.close()
@@ -1545,13 +1545,14 @@ class DB(object):
                 label = name
             if_data.update({'label': label})
             if_data.update({'type': if_type})
-            if_date.update({'speed': self.interface_speeds[if_type]})
-            if 'gfc' in if_type:
-                if_data.update({'wwn': ':'.join(l2address[i:i+2] for i in range(0,16,2))})
-            else:
-                if_data.update({'mac_address': ':'.join(l2address[i:i+2] for i in range(0,12,2))})
+            if_data.update({'speed': self.interface_speeds[if_type]})
+            if l2address:
+                if 'gfc' in if_type:
+                    if_data.update({'wwn': ':'.join(l2address[i:i+2] for i in range(0,16,2))})
+                else:
+                    if_data.update({'mac_address': ':'.join(l2address[i:i+2] for i in range(0,12,2))})
             
-            pp.pprint(if_date)
+            pp.pprint(if_data)
             rest.post_interface(if_data)
 
     def get_device_to_ip(self):
