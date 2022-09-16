@@ -343,6 +343,12 @@ class REST(object):
         data = self.fetcher(url)
         return data
 
+    def check_interface(self, dev, if):
+        url = f'{self.base_url}/dcim/interface/?device={dev}&name={ifname}'
+        logger.info('checking interface from {}'.format(url))
+        data = self.fetcher(url)
+        return data
+
     def check_platform(self, plat):
         url = self.base_url + '/dcim/platforms/?slug=' + plat
         logger.info('Checking platform from {}'.format(url))
@@ -1537,6 +1543,10 @@ class DB(object):
                     continue
             if_type = self.interface_types[oif_name]
             if if_type == 'other':
+                continue
+            if_old = json.loads(rest.check_interface(object_name, name))['results']
+            if if_old:
+                logger.msg(f'Device {object_name} interface {name} already present')
                 continue
             if_data = {}
             if_data.update({'device': data[0]['id']})
