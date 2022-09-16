@@ -343,8 +343,8 @@ class REST(object):
         data = self.fetcher(url)
         return data
 
-    def check_interface(self, dev, if):
-        url = f'{self.base_url}/dcim/interface/?device={dev}&name={ifname}'
+    def check_interface(self, devid, ifname):
+        url = f'{self.base_url}/dcim/interfaces/?device_id={devid}&name={ifname}'
         logger.info('checking interface from {}'.format(url))
         data = self.fetcher(url)
         return data
@@ -1445,7 +1445,7 @@ class DB(object):
             elif 'empty SFP+' in oif_name:
                 self.interface_types.update({oif_name: '10gbase-x-sfpp'})
             elif '25GBase' in oif_name:
-                self.interface_types.update({oif_name: '25gbase-sfp28'})
+                self.interface_types.update({oif_name: '25gbase-x-sfp28'})
             elif '40GBase' in oif_name:
                 self.interface_types.update({oif_name: '40gbase-x-qsfpp'})
             elif '100GBase' in oif_name:
@@ -1533,20 +1533,20 @@ class DB(object):
         for line in data:
             id, name, object_id, object_name, l2address, label, comment, iif_id, oif_id, iif_name, oif_name, remote_id, remote_name, remote_object_id, remote_object_name, remote_object_tid = line
             if not object_name:
-                logger.msg(f'No device name for interface {name}')
+                logger.info(f'No device name for interface {name}')
                 continue
             data = json.loads(rest.check_device(object_name))['results']
             if not data:
                 data = json.loads(rest.check_vm(object_name))['results']
                 if not data:
-                    logger.msg(f'Device {object_name} not found for interface {name}')
+                    logger.info(f'Device {object_name} not found for interface {name}')
                     continue
             if_type = self.interface_types[oif_name]
             if if_type == 'other':
                 continue
-            if_old = json.loads(rest.check_interface(object_name, name))['results']
+            if_old = json.loads(rest.check_interface(data[0]['id'], name))['results']
             if if_old:
-                logger.msg(f'Device {object_name} interface {name} already present')
+                logger.info(f'Device {object_name} interface {name} already present')
                 continue
             if_data = {}
             if_data.update({'device': data[0]['id']})
