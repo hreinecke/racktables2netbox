@@ -1525,26 +1525,15 @@ class DB(object):
 	    Port.iif_id, Port.type AS oif_id,
 	    (SELECT PortInnerInterface.iif_name FROM PortInnerInterface WHERE PortInnerInterface.id = Port.iif_id) AS iif_name,
 	    (SELECT PortOuterInterface.oif_name FROM PortOuterInterface WHERE PortOuterInterface.id = Port.type) AS oif_name,
-	    IF(la.porta, pa.id, pb.id) AS remote_id,
-	    IF(la.porta, pa.name, pb.name) AS remote_name,
-	    IF(la.porta, pa.object_id, pb.object_id) AS remote_object_id,
-	    IF(la.porta, oa.name, ob.name) AS remote_object_name,
-	    IF(la.porta, oa.objtype_id, ob.objtype_id) AS remote_object_tid
             FROM Port
 	    INNER JOIN Object ON Port.object_id = Object.id
-	    LEFT JOIN Link AS la ON la.porta = Port.id
-	    LEFT JOIN Port AS pa ON pa.id = la.portb
-	    LEFT JOIN Object AS oa ON pa.object_id = oa.id
-	    LEFT JOIN Link AS lb on lb.portb = Port.id
-	    LEFT JOIN Port AS pb ON pb.id = lb.porta
-	    LEFT JOIN Object AS ob ON pb.object_id = ob.id
             WHERE Port.object_id = %d""" % id
         cur.execute(q)
         data = cur.fetchall()
         cur.close()
 
         for line in data:
-            id, name, object_id, object_name, l2address, label, comment, iif_id, oif_id, iif_name, oif_name, remote_id, remote_name, remote_object_id, remote_object_name, remote_object_tid = line
+            id, name, object_id, object_name, l2address, label, comment, iif_id, oif_id, iif_name, oif_name = line
             if not object_name:
                 logger.info(f'No device name for interface {name}')
                 continue
@@ -1561,10 +1550,6 @@ class DB(object):
             if if_old:
                 logger.info(f'Device {object_name} interface {name} already present')
                 return
-            if dev_type = 4 and remote_name:
-                remote_data = json.loads(rest.check_device(remote_name))['results']
-                if remote_data and remote_object_name:
-                    remote_if = json.loads(rest.check_interface(remote_data[0].['id'], remote_object_name))['results']
             if_data = {}
             if_data.update({'device': data[0]['id']})
             if_data.update({'name': name})
@@ -1578,10 +1563,8 @@ class DB(object):
                     if_data.update({'wwn': ':'.join(l2address[i:i+2] for i in range(0,16,2))})
                 else:
                     if_data.update({'mac_address': ':'.join(l2address[i:i+2] for i in range(0,12,2))})
-            if remote_if:
-                if_data.update({'parent': remote_if[0]['id']})
             
-            pp.pprint(if_data)
+            logger.info(f'Uploading interface (if_data)')
             rest.post_interface(if_data)
 
     def get_device_to_ip(self):
