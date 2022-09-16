@@ -1461,31 +1461,31 @@ class DB(object):
             elif 'FC32G-SW' in oif_name:
                 self.interface_types.update({oif_name: '32gfc-sfp28'})
             elif 'empty SFP28' in oif_name:
-                self.interface_types.update({oif_name: '25gbase-sfp28'})
+                self.interface_types.update({oif_name: '25gbase-x-sfp28'})
             else:
                 self.interface_types.update({oif_name: 'other'})
 
         for if_type in self.interface_types.values():
             if '100base' in if_type:
-                if_speed = 100
-            elif '1000base' in if_type:
-                if_speed = 1000
-            elif '10gbase' in if_type:
-                if_speed = 10000
-            elif '25gbase' in if_type:
-                if_speed = 25000
-            elif '40gbase' in if_type:
-                if_speed = 40000
-            elif '100gbase' in if_type:
                 if_speed = 100000
+            elif '1000base' in if_type:
+                if_speed = 1000000
+            elif '10gbase' in if_type:
+                if_speed = 10000000
+            elif '25gbase' in if_type:
+                if_speed = 25000000
+            elif '40gbase' in if_type:
+                if_speed = 40000000
+            elif '100gbase' in if_type:
+                if_speed = 100000000
             elif '4gfc' in if_type:
-                if_speed = 4000
+                if_speed = 4000000
             elif '8gfc' in if_type:
-                if_speed = 8000
+                if_speed = 8000000
             elif '16gfc' in if_type:
-                if_speed = 16000
+                if_speed = 16000000
             elif '32gfc' in if_type:
-                if_speed = 32000
+                if_speed = 32000000
             if if_speed:
                 self.interface_speeds.update({if_type: if_speed})
 
@@ -1524,7 +1524,7 @@ class DB(object):
 	    Port.reservation_comment,
 	    Port.iif_id, Port.type AS oif_id,
 	    (SELECT PortInnerInterface.iif_name FROM PortInnerInterface WHERE PortInnerInterface.id = Port.iif_id) AS iif_name,
-	    (SELECT PortOuterInterface.oif_name FROM PortOuterInterface WHERE PortOuterInterface.id = Port.type) AS oif_name,
+	    (SELECT PortOuterInterface.oif_name FROM PortOuterInterface WHERE PortOuterInterface.id = Port.type) AS oif_name
             FROM Port
 	    INNER JOIN Object ON Port.object_id = Object.id
             WHERE Port.object_id = %d""" % id
