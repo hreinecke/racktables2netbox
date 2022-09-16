@@ -1502,6 +1502,19 @@ class DB(object):
         for dev_id in ids:
             self.get_device_interfaces(dev_id, 8)
 
+    def get_server_interfaces(self):
+        cur = self.con.cursor()
+        # get object IDs
+        q = """SELECT id FROM Object WHERE objtype_id in (4,5,1504)"""
+        cur.execute(q)
+        idsx = cur.fetchall()
+        cur.close()
+
+        ids = [x[0] for x in idsx]
+
+        for dev_id in ids:
+            self.get_device_interfaces(dev_id, 4)
+
     def get_device_interfaces(self, id, dev_type):
         cur = self.con.cursor()
         q = """SELECT
@@ -1547,7 +1560,11 @@ class DB(object):
             if_old = json.loads(rest.check_interface(data[0]['id'], name))['results']
             if if_old:
                 logger.info(f'Device {object_name} interface {name} already present')
-                continue
+                return
+            if dev_type = 4 and remote_name:
+                remote_data = json.loads(rest.check_device(remote_name))['results']
+                if remote_data and remote_object_name:
+                    remote_if = json.loads(rest.check_interface(remote_data[0].['id'], remote_object_name))['results']
             if_data = {}
             if_data.update({'device': data[0]['id']})
             if_data.update({'name': name})
@@ -1561,6 +1578,8 @@ class DB(object):
                     if_data.update({'wwn': ':'.join(l2address[i:i+2] for i in range(0,16,2))})
                 else:
                     if_data.update({'mac_address': ':'.join(l2address[i:i+2] for i in range(0,12,2))})
+            if remote_if:
+                if_data.update({'parent': remote_if[0]['id']})
             
             pp.pprint(if_data)
             rest.post_interface(if_data)
@@ -1811,7 +1830,8 @@ class DB(object):
             #self.get_devices()
             #self.get_vms()
             #self.get_container_map()
-            self.get_switch_interfaces()
+            #self.get_switch_interfaces()
+            self.get_server_interfaces()
             #self.link_interfaces()
 
     @staticmethod
