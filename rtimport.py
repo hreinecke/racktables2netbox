@@ -121,6 +121,11 @@ class REST(object):
         logger.info('Posting Interface data to {}'.format(url))
         self.uploader(data, url)
 
+    def post_vm_interface(self, data):
+        url = f'{self.base_url}/virtualization/interfaces/'
+        logger.info('Posting VM interface data to {}'.format(url))
+        self.uploader(data, url)
+
     def post_tags(self, data):
         url = f'{self.base_url}/extras/tags/'
         logger.info('Posting tag data to {}'.format(url))
@@ -346,6 +351,12 @@ class REST(object):
     def check_interface(self, devid, ifname):
         url = f'{self.base_url}/dcim/interfaces/?device_id={devid}&name={ifname}'
         logger.info('checking interface from {}'.format(url))
+        data = self.fetcher(url)
+        return data
+
+    def check_vm_interface(self, vmid, ifname):
+        url = f'{self.base_url}/virtualization/interfaces/?virtual_machine={vmid}&name={ifname}'
+        logger.info('checking VM interface from {}'.format(url))
         data = self.fetcher(url)
         return data
 
@@ -1489,10 +1500,10 @@ class DB(object):
             if if_speed:
                 self.interface_speeds.update({if_type: if_speed})
 
-    def get_switch_interfaces(self):
+    def get_interfaces(self):
         cur = self.con.cursor()
         # get object IDs
-        q = """SELECT id FROM Object WHERE objtype_id in (7,8,798,1055,1507)"""
+        q = """SELECT id FROM Object WHERE objtype_id in (4,5,7,8,798,1055,1504,1507)"""
         cur.execute(q)
         idsx = cur.fetchall()
         cur.close()
@@ -1500,26 +1511,13 @@ class DB(object):
         ids = [x[0] for x in idsx]
 
         for dev_id in ids:
-            self.get_device_interfaces(dev_id, 8)
+            self.get_device_interfaces(dev_id)
 
-    def get_server_interfaces(self):
-        cur = self.con.cursor()
-        # get object IDs
-        q = """SELECT id FROM Object WHERE objtype_id in (4,5,1504)"""
-        cur.execute(q)
-        idsx = cur.fetchall()
-        cur.close()
-
-        ids = [x[0] for x in idsx]
-
-        for dev_id in ids:
-            self.get_device_interfaces(dev_id, 4)
-
-    def get_device_interfaces(self, id, dev_type):
+    def get_device_interfaces(self, id):
         cur = self.con.cursor()
         q = """SELECT
 	    Port.id, Port.name, Port.object_id,
-	    Object.name AS object_name,
+	    Object.objtype_id AS object_type, Object.name AS object_name,
 	    Port.l2address, Port.label,
 	    Port.reservation_comment,
 	    Port.iif_id, Port.type AS oif_id,
@@ -1533,28 +1531,35 @@ class DB(object):
         cur.close()
 
         for line in data:
-            id, name, object_id, object_name, l2address, label, comment, iif_id, oif_id, iif_name, oif_name = line
+            id, name, object_id, object_type, object_name, l2address, label, comment, iif_id, oif_id, iif_name, oif_name = line
             if not object_name:
                 logger.info(f'No device name for interface {name}')
                 continue
             if not name:
                 logger.info(f'No Interface name provided for {object_name} label {label}')
                 continue
-            data = json.loads(rest.check_device(object_name))['results']
-            if not data:
+            if object_type != 1504:
+                data = json.loads(rest.check_device(object_name))['results']
+            else:
                 data = json.loads(rest.check_vm(object_name))['results']
-                if not data:
-                    logger.info(f'Device {object_name} not found for interface {name}')
-                    continue
+            if not data:
+                logger.info(f'Device {object_name} not found for interface {name}')
+                continue
             if_type = self.interface_types[oif_name]
             if if_type == 'other':
                 continue
-            if_old = json.loads(rest.check_interface(data[0]['id'], name))['results']
+            if object_type != 1504:
+                if_old = json.loads(rest.check_interface(data[0]['id'], name))['results']
+            else:
+                if_old = json.loads(rest.check_vm_interface(data[0]['id'], name))['results']
             if if_old:
                 logger.info(f'Device {object_name} interface {name} already present')
                 return
             if_data = {}
-            if_data.update({'device': data[0]['id']})
+            if object_type != 1504:
+                if_data.update({'device': data[0]['id']})
+            else:
+                if_data.update({'virtual_machine': data[0]['id']})
             if_data.update({'name': name})
             if not label:
                 label = name
@@ -1567,8 +1572,11 @@ class DB(object):
                 else:
                     if_data.update({'mac_address': ':'.join(l2address[i:i+2] for i in range(0,12,2))})
             
-            logger.info(f'Uploading interface (if_data)')
-            rest.post_interface(if_data)
+            logger.info(f'Uploading interface')
+            if object_type != 1504:
+                rest.post_interface(if_data)
+            else:
+                rest.post_vm_interface(if_data)
 
     def get_device_to_ip(self):
         if not self.con:
@@ -1597,6 +1605,26 @@ class DB(object):
             if nic_name:
                 devmap.update({'tag': nic_name})
             rest.post_ip(devmap)
+
+    def link_interfaces(self):
+        cur = self.con.cursor()
+        q = """SELECT pa.id as id_a,
+            pa.name as port_name_a,
+            oa.name as obj_name_a,
+            pb.id as id_b,
+            pb.name as port_name_b,
+            ob.name as object_name_b
+            FROM Link
+            INNER JOIN Port pa ON pa.id = Link.porta
+            INNER JOIN Port pb ON pb.id = Link.portb
+            INNER JOIN Object oa ON pa.object_id = oa.id
+            INNER JOIN Object ob ON pb.object_id = pb.id"""
+        cur.execute(q)
+        data = cur.fetchall()
+        cur.close()
+
+        for line in data:
+            pp.pprint(line)
 
     def get_pdus(self):
         if not self.con:
@@ -1816,9 +1844,8 @@ class DB(object):
             #self.get_devices()
             #self.get_vms()
             #self.get_container_map()
-            #self.get_switch_interfaces()
-            self.get_server_interfaces()
-            #self.link_interfaces()
+            self.get_interfaces()
+            self.link_interfaces()
 
     @staticmethod
     def get_port_by_id(ports, port_id):
