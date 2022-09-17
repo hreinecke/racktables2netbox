@@ -1537,6 +1537,9 @@ class DB(object):
             if not object_name:
                 logger.info(f'No device name for interface {name}')
                 continue
+            if not name:
+                logger.info(f'No Interface name provided for {object_name} label {label}')
+                continue
             data = json.loads(rest.check_device(object_name))['results']
             if not data:
                 data = json.loads(rest.check_vm(object_name))['results']
