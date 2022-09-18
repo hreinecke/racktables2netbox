@@ -1613,12 +1613,13 @@ class DB(object):
             oa.name as obj_name_a,
             pb.id as id_b,
             pb.name as port_name_b,
-            ob.name as object_name_b
+            ob.name as object_name_b,
+            Link.cable
             FROM Link
             INNER JOIN Port pa ON pa.id = Link.porta
             INNER JOIN Port pb ON pb.id = Link.portb
             INNER JOIN Object oa ON pa.object_id = oa.id
-            INNER JOIN Object ob ON pb.object_id = pb.id"""
+            INNER JOIN Object ob ON pb.object_id = ob.id"""
         cur.execute(q)
         data = cur.fetchall()
         cur.close()
@@ -1844,7 +1845,7 @@ class DB(object):
             #self.get_devices()
             #self.get_vms()
             #self.get_container_map()
-            self.get_interfaces()
+            #self.get_interfaces()
             self.link_interfaces()
 
     @staticmethod
