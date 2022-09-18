@@ -355,7 +355,7 @@ class REST(object):
         return data
 
     def check_vm_interface(self, vmid, ifname):
-        url = f'{self.base_url}/virtualization/interfaces/?virtual_machine={vmid}&name={ifname}'
+        url = f'{self.base_url}/virtualization/interfaces/?virtual_machine_id={vmid}&name={ifname}'
         logger.info('checking VM interface from {}'.format(url))
         data = self.fetcher(url)
         return data
