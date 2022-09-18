@@ -839,42 +839,22 @@ class DB(object):
                 rest.post_tags(tag_data)
                 current_tags.append(tag)
 
-    def get_vmhosts(self):
+    def get_vlans(self):
         cur = self.con.cursor()
-        q = """SELECT id, name FROM Object WHERE objtype_id='1505'"""
+        q = """SELECT vdom.id as vlan_domain,
+            vdom.group_id as vlan_group,
+            vdom.description as vlan_desc,
+            vdesc.vlan_id as vlan_id,
+            vdesc.vlan_type as vlan_type,
+            vdesc.vlan_descr as description
+        FROM VLANDomain AS vdom
+        INNER JOIN VLANDescription AS vdesc IN vdom.id = vdesc.domain_id"""
         cur.execute(q)
-        raw = cur.fetchall()
-
-        dev = {}
-        for rec in raw:
-            host_id = int(rec[0])
-            try:
-                name = rec[1].strip()
-            except AttributeError:
-                continue
-            self.vm_hosts.update({host_id: name})
-            dev.update({'name': name})
-            dev.update({'is_it_virtual_host': 'yes'})
-            rest.post_device(dev)
-
-    def get_chassis(self):
-        cur = self.con.cursor()
-        q = """SELECT id, name FROM Object WHERE objtype_id='1502'"""
-        cur.execute(q)
-        raw = cur.fetchall()
+        data = cur.fetchall()
         cur.close()
 
-        dev = {}
-        for rec in raw:
-            host_id = int(rec[0])
-            try:
-                name = rec[1].strip()
-            except AttributeError:
-                continue
-            self.chassis.update({host_id: name})
-            dev.update({'name': name})
-            dev.update({'is_it_blade_host': 'yes'})
-            rest.post_device(dev)
+        for line in data:
+            pp.pprint(line)
 
     def get_container_map(self):
         """
@@ -1908,6 +1888,7 @@ class DB(object):
         with self.con:
             self.get_interface_types()
             self.get_device_roles()
+            self.get_vlans()
             #self.get_tags()
             #self.get_locations()
             #self.get_racks()
