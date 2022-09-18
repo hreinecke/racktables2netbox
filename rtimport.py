@@ -1626,7 +1626,7 @@ class DB(object):
             pb.id as id_b,
             pb.name as port_name_b,
             ob.name as obj_name_b,
-            ob.objtype_id as obj_type_b
+            ob.objtype_id as obj_type_b,
             Link.cable
             FROM Link
             INNER JOIN Port pa ON pa.id = Link.porta
@@ -1638,7 +1638,7 @@ class DB(object):
         cur.close()
 
         for line in data:
-            id_a, port_name_a, obj_name_a, obj_type_b, id_b, port_name_b, obj_name_b, obj_type_b, link_label = line
+            id_a, port_name_a, obj_name_a, obj_type_a, id_b, port_name_b, obj_name_b, obj_type_b, link_label = line
             if obj_type_a != 1504:
                 obj_data_a = json.loads(rest.check_device(obj_name_a))['results']
             else:
@@ -1646,10 +1646,11 @@ class DB(object):
             if not obj_data_a:
                 logger.info(f'Device {obj_name_a} not found')
                 continue
+            obj_a = obj_data_a[0]['id']
             if obj_type_a != 1504:
-                if_data_a = json.loads(rest.check_interface(obj_data_a[0], port_name_a))['results']
+                if_data_a = json.loads(rest.check_interface(obj_a, port_name_a))['results']
             else:
-                if_data_a = json.loads(rest.check_vm_interface(obj_data_a[0], port_name_a))['results']
+                if_data_a = json.loads(rest.check_vm_interface(obj_a, port_name_a))['results']
             if not if_data_a:
                 logger.info(f'Interface {port_name_a} on device {obj_name_a} not found!')
                 continue
@@ -1660,28 +1661,26 @@ class DB(object):
             if not obj_data_b:
                 logger.info(f'Device {obj_name_b} not found')
                 continue
+            obj_b = obj_data_b[0]['id']
             if obj_type_b != 1504:
-                if_data_b = json.loads(rest.check_interface(obj_data_b[0], port_name_b))['results']
+                if_data_b = json.loads(rest.check_interface(obj_b, port_name_b))['results']
             else:
-                if_data_b = json.loads(rest.check_vm_interface(obj_data_b[0], port_name_b))['results']
+                if_data_b = json.loads(rest.check_vm_interface(obj_b, port_name_b))['results']
             if not if_data_b:
                 logger.info(f'Interface {port_name_b} on device {obj_name_b} not found!')
                 continue
             cable_data = {}
             term_data_a = {}
-            term_data_a.update({'object_id': if_data_a[0]['id']})
+            cable_data.update({'termination_a_id': if_data_a[0]['id']})
             if obj_type_a != 1504:
-                term_data_a.update({'object_type': 'dcim.device'})
+                cable_data.update({'termination_a_type': 'dcim.interface'})
             else:
-                term_data_a.update({'object_type': 'virtualization.virtual_machine'})
-            cable_data.update({'a_terminations': term_data_a})
-            term_data_b = {}
-            term_data_b.update({'object_id': if_data_b[0]['id']})
+                cable_data.update({'termination_a_type': 'virtualization.interface'})
+            cable_data.update({'termination_b_id': if_data_b[0]['id']})
             if obj_type_b != 1504:
-                term_data_b.update({'object_type': 'dcim.device'})
+                cable_data.update({'termination_b_type': 'dcim.interface'})
             else:
-                term_data_b.update({'object_type': 'virtualization.virtual_machine'})
-            cable_data.update({'b_terminations': term_data_b})
+                cable_data.update({'termination_b_type': 'virtualization.interface'})
             cable_data.update({'status': 'connected'})
             cable_data.update({'length': '3'})
             cable_data.update({'length_unit': 'm'})
@@ -1689,11 +1688,14 @@ class DB(object):
                 cable_data.update({'label': link_label})
             if if_data_a[0]['speed'] <= 1000000:
                 cable_data.update({'type': 'cat7'})
-            elif if_data_a[0]['type'] in gfc:
+            elif 'gfc' in if_data_a[0]['type']:
                 cable_data.update({'type': 'mmf-om2'})
             else:
                 cable_data.update({'type': 'dac-passive'})
-            rest.post_cable(cable_data)
+            try:
+                rest.post_cable(cable_data)
+            except:
+                pass
 
     def get_pdus(self):
         if not self.con:
