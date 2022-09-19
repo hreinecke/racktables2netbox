@@ -565,19 +565,21 @@ class DB(object):
                 logger.info(f'VLAN {vdom_desc}/{vlan_id} not found!')
                 continue
             subnet_ip = self.convert_ip(subnet_ip_raw)
-            subnet = json.loads(rest.check_subnet(subnet_ip, subnet_mask))['results']
-            if not subnet:
+            subnet_data = json.loads(rest.check_subnet(subnet_ip, subnet_mask))['results']
+            if not subnet_data:
                 subnet_data = {}
                 subnet_data.update({'prefix': '/'.join([subnet_ip, str(subnet_mask)])})
                 subnet_data.update({'status':'active'})
                 subnet_data.update({'description': name})
                 subnet = rest.post_subnet(subnet_data)
+            else:
+                subnet = subnet_data[0]
 
-            if 'vlan' in subnet:
+            if subnet['vlan']:
                 continue
 
             subnet_data = {}
-            subnet_data.update({'vlan': vlan['id']})
+            subnet_data.update({'vlan': vlan[0]['id']})
             rest.patch_subnet(subnet['id'], subnet_data)
 
     def get_locations(self):
