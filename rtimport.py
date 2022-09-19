@@ -508,6 +508,24 @@ class DB(object):
             vlan.update({'description': vlan_desc})
             rest.post_vlan(vlan)
 
+    def get_ipv4_vlans(self):
+        """
+        Match VLAN IDs to IPv4 subnets
+        :return:
+        """
+        cur = self.cursor()
+        q = """SELECT vd.description as vdom_desc,
+            vdesc.vlan_id AS vlan_id,
+            subnet.ip AS subnet_ip, subnet.mask as subnet_mask
+            FROM VLANIPv4 AS vi
+            INNER JOIN VLANDescription AS vdesc WHERE vi.domain_id = vdesc.domain_id AND vi.vlan_id = vdesc.vlan_id
+            INNER JOIN IPv4Network AS subnet WHERE vi.ipv4net_id = subnet.id"""
+        cur.execute(q)
+        data = cur.fetchall()
+        cur.close()
+
+        for line in data:
+            pp.pprint(line)
 
     def get_locations(self):
         """
@@ -612,8 +630,7 @@ class DB(object):
                 row_data.update({'parent': loc_data[0]['id']})
                 row_data.update({'site': (loc_data[0]['site'])['id']})
                 row_data.update({'slug': row_slug})
-                rest.post_location(row_data)
-                row_data = (json.loads(rest.check_location(row_slug)))['results']
+                row_data = rest.post_location(row_data)
 
             rack_data = {}
             rack_data = (json.loads(rest.check_rack(row_slug, rack_name)))['results']
@@ -1895,6 +1912,8 @@ class DB(object):
             self.get_interface_types()
             self.get_device_roles()
             self.get_vlans()
+            #self.get_subnets()
+            self.get_ipv4_vlans()
             #self.get_tags()
             #self.get_locations()
             #self.get_racks()
@@ -1906,27 +1925,6 @@ class DB(object):
             #self.link_interfaces()
 
     @staticmethod
-    def get_port_by_id(ports, port_id):
-        for port in ports:
-            if port[3] == port_id:
-                return port[0]
-
-    def get_device_by_port(self, port_id):
-        if not self.con:
-            self.connect()
-        with self.con:
-            cur = self.con.cursor()
-            q = """SELECT
-                    name
-                    FROM Object
-                    WHERE id = ( SELECT object_id FROM Port WHERE id = %s )""" % port_id
-            cur.execute(q)
-        data = cur.fetchone()
-        if data:
-            return data[0]
-        else:
-            return False
-
     def get_rack_id_for_zero_us(self, pdu_id):
         if not self.con:
             self.connect()
