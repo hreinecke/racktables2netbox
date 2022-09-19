@@ -284,8 +284,14 @@ class REST(object):
         data = self.fetcher(url)
         return data
 
+    def check_subnet(self, ip, mask):
+        url = f'{self.base_url}/ipam/prefixes/?prefix={ip}/{mask}'
+        logger.info('Checking ip subnet from {}'.format(url))
+        data = self.fetcher(url)
+        return data
+
     def check_vlan(self, vdom, vid):
-        url = f'{self.base_url}/ipam/vlans/?group={vdom}&vid={vid}'
+        url = f'{self.base_url}/ipam/vlans/?group_id={vdom}&vid={vid}'
         logger.info('Fetching VLAN domains from {}'.format(url))
         data = self.fetcher(url)
         return data
@@ -559,10 +565,10 @@ class DB(object):
                 logger.info(f'VLAN {vdom_desc}/{vlan_id} not found!')
                 continue
             subnet_ip = self.convert_ip(subnet_ip_raw)
-            subnet = json.loads(rest.get_subnet(subnet_ip, subnet_mask))['results']
+            subnet = json.loads(rest.check_subnet(subnet_ip, subnet_mask))['results']
             if not subnet:
                 subnet_data = {}
-                subnet_data.update({'prefix': '/'.join([subnet, str(mask)])})
+                subnet_data.update({'prefix': '/'.join([subnet_ip, str(subnet_mask)])})
                 subnet_data.update({'status':'active'})
                 subnet_data.update({'description': name})
                 subnet = rest.post_subnet(subnet_data)
