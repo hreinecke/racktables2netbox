@@ -503,6 +503,7 @@ class DB(object):
                 vlan_dom_list.update({vlan_dom_slug: result['id']})
 
             vlan = {}
+            vlan.update({'name': vlan_desc})
             vlan.update({'vid': vlan_id})
             vlan.update({'group': vlan_dom_list[vlan_dom_slug]})
             vlan.update({'description': vlan_desc})
@@ -1914,7 +1915,7 @@ class DB(object):
         with self.con:
             self.get_interface_types()
             self.get_device_roles()
-            self.get_vlans()
+            #self.get_vlans()
             #self.get_subnets()
             self.get_ipv4_vlans()
             #self.get_tags()
