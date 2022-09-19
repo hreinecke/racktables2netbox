@@ -121,6 +121,12 @@ class REST(object):
         logger.info('Posting Interface data to {}'.format(url))
         self.uploader(data, url)
 
+    def post_vlan_domain(self, data):
+        url = f'{self.base_url}/ipam/vlan-domains/'
+        logger.info('Posting VLAN domain data to {}'.format(url))
+        res = self.uploader(data,url)
+        return res
+
     def post_vm_interface(self, data):
         url = f'{self.base_url}/virtualization/interfaces/'
         logger.info('Posting VM interface data to {}'.format(url))
@@ -287,6 +293,12 @@ class REST(object):
         data = self.fetcher(url)
         return data
 
+    def get_vlan_domains(self):
+        url = f'{self.base_url}/ipam/vlan_domains/'
+        logger.info('Fetching VLAN domains from {}'.format(url))
+        data = self.fetcher(url)
+        return data
+
     def check_ip(self, addr):
         url = self.base_url + '/ipam/ip-addresses/?description=' + addr
         logger.info('Checking ip address from {}'.format(url))
@@ -430,16 +442,16 @@ class DB(object):
         :return:
         """
         adrese = []
-        if not self.con:
-            self.connect()
-        with self.con:
-            cur = self.con.cursor()
-            q = 'SELECT * FROM IPv4Address WHERE IPv4Address.name != "" or IPv4Address.comment != ""'
-            cur.execute(q)
-            ips = cur.fetchall()
-            if config['Log']['DEBUG']:
-                msg = ('IPs', str(ips))
-                logger.debug(msg)
+
+        cur = self.con.cursor()
+        q = 'SELECT * FROM IPv4Address WHERE IPv4Address.name != "" or IPv4Address.comment != ""'
+        cur.execute(q)
+        ips = cur.fetchall()
+        cur.close()
+
+        if config['Log']['DEBUG']:
+            msg = ('IPs', str(ips))
+            logger.debug(msg)
 
         for line in ips:
             net = {}
@@ -467,16 +479,17 @@ class DB(object):
         :return:
         """
         subs = {}
-        if not self.con:
-            self.connect()
-        with self.con:
-            cur = self.con.cursor()
-            q = "SELECT * FROM IPv4Network"
-            cur.execute(q)
-            subnets = cur.fetchall()
-            if config['Log']['DEBUG']:
-                msg = ('Subnets', str(subnets))
-                logger.debug(msg)
+
+        cur = self.con.cursor()
+        q = "SELECT * FROM IPv4Network"
+        cur.execute(q)
+        subnets = cur.fetchall()
+        cur.close()
+
+        if config['Log']['DEBUG']:
+            msg = ('Subnets', str(subnets))
+            logger.debug(msg)
+
         for line in subnets:
             sid, raw_sub, mask, name, x = line
             subnet = self.convert_ip(raw_sub)
@@ -485,6 +498,38 @@ class DB(object):
             #subs.update({'mask_bits': str(mask)})
             subs.update({'description':name})
             rest.post_subnet(subs)        
+
+    def get_vlans(self):
+        cur = self.con.cursor()
+        q = """SELECT vdom.id as vlan_domain,
+            vdom.group_id as vlan_group,
+            vdom.description as vlan_desc,
+            vdesc.vlan_id as vlan_id,
+            vdesc.vlan_type as vlan_type,
+            vdesc.vlan_descr as description
+        FROM VLANDomain AS vdom
+        INNER JOIN VLANDescription AS vdesc WHERE vdom.id = vdesc.domain_id"""
+        cur.execute(q)
+        data = cur.fetchall()
+        cur.close()
+
+        vlan_dom_data = json.loads(rest.get_vlan_domains())['results']
+        vlan_dom_list = {}
+        for vlan_dom in vlan_dom_data:
+            vlan_dom_list.update(vlan_dom['slug']: vlan_dom['id'])
+
+        for line in data:
+            vlan_dom_id, vlan_dom_group, vlan_dom_desc, \
+                vlan_id, vlan_type, vlan_desc = line
+            vlan_dom_slug = slugify.slugify(vlan_dom_desc)
+            if vlan_dom_slug not in vlan_dom_list:
+                vlan_dom = {}
+                vlan_dom.update('name': vlan_dom_desc)
+                vlan_dom.update('slug': vlan_dom_slug)
+                result = json.loads(rest.post_vlan_domain(vlan_dom))
+                vlan_dom_list.update(vlan_dom_slug: result['id'])
+
+            pp.pprint(line)
 
     def get_locations(self):
         """
@@ -838,23 +883,6 @@ class DB(object):
                 tag_data.update({'slug': slug})
                 rest.post_tags(tag_data)
                 current_tags.append(tag)
-
-    def get_vlans(self):
-        cur = self.con.cursor()
-        q = """SELECT vdom.id as vlan_domain,
-            vdom.group_id as vlan_group,
-            vdom.description as vlan_desc,
-            vdesc.vlan_id as vlan_id,
-            vdesc.vlan_type as vlan_type,
-            vdesc.vlan_descr as description
-        FROM VLANDomain AS vdom
-        INNER JOIN VLANDescription AS vdesc IN vdom.id = vdesc.domain_id"""
-        cur.execute(q)
-        data = cur.fetchall()
-        cur.close()
-
-        for line in data:
-            pp.pprint(line)
 
     def get_container_map(self):
         """
