@@ -1643,18 +1643,16 @@ class DB(object):
                 rest.post_vm_interface(if_data)
 
     def get_device_to_ip(self):
-        if not self.con:
-            self.connect()
-        with self.con:
-            # get hardware items (except PDU's)
-            cur = self.con.cursor()
-            q = """SELECT
-                    IPv4Allocation.ip,IPv4Allocation.name,
-                    Object.name as hostname
-                    FROM %s.`IPv4Allocation`
-                    LEFT JOIN Object ON Object.id = object_id""" % config['MySQL']['DB_NAME']
-            cur.execute(q)
+        # get hardware items (except PDU's)
+        cur = self.con.cursor()
+        q = """SELECT
+            ipa.ip as ipaddress, ipa.name as ifname,
+            Object.name as hostname
+            FROM IPv4Allocation AS ipa`
+            LEFT JOIN Object ON Object.id = object_id"""
+        cur.execute(q)
         data = cur.fetchall()
+        cur.close()
 
         if config['Log']['DEBUG']:
             msg = ('Device to IP', str(data))
@@ -1664,11 +1662,11 @@ class DB(object):
             devmap = {}
             rawip, nic_name, hostname = line
             ip = self.convert_ip(rawip)
-            devmap.update({'ipaddress': ip})
+            devmap.update({'address': ip})
             devmap.update({'device': hostname})
             if nic_name:
                 devmap.update({'tag': nic_name})
-            rest.post_ip(devmap)
+            pp.pprint(devmap)
 
     def link_interfaces(self):
         cable_type = {'cat3', 'cat5', 'cat5e', 'cat6', 'cat6a',
@@ -1965,11 +1963,11 @@ class DB(object):
             self.connect()
 
         with self.con:
-            self.get_interface_types()
-            self.get_device_roles()
-            self.get_vlans()
+            #self.get_interface_types()
+            #self.get_device_roles()
+            #self.get_vlans()
             #self.get_subnets()
-            self.get_ipv4_vlans()
+            #self.get_ipv4_vlans()
             #self.get_tags()
             #self.get_locations()
             #self.get_racks()
@@ -1979,6 +1977,7 @@ class DB(object):
             #self.get_container_map()
             #self.get_interfaces()
             #self.link_interfaces()
+            self.get_device_to_ip()
 
     @staticmethod
     def get_rack_id_for_zero_us(self, pdu_id):
@@ -2030,7 +2029,6 @@ if __name__ == '__main__':
     rest = REST()    
     racktables = DB()
     racktables.get_data()
-    #racktables.get_device_to_ip()
     #racktables.get_pdus()
     #racktables.get_patch_panels()
 
