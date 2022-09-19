@@ -1960,37 +1960,6 @@ class DB(object):
         else:
             return False
 
-    def get_links(self, port_id):
-        if not self.con:
-            self.connect()
-        with self.con:
-            cur = self.con.cursor()
-            q = """SELECT
-                    porta,
-                    portb
-                    FROM Link
-                    WHERE portb = %s""" % port_id
-            cur.execute(q)
-        data = cur.fetchall()
-
-        if data:
-            return data[0]
-        else:
-            with self.con:
-                cur = self.con.cursor()
-                q = """SELECT
-                        portb,
-                        porta
-                        FROM Link
-                        WHERE porta = %s""" % port_id
-                cur.execute(q)
-            data = cur.fetchall()
-
-            if data:
-                return data[0]
-            else:
-                return False
-
     def get_rack_id_for_zero_us(self, pdu_id):
         if not self.con:
             self.connect()
