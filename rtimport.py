@@ -122,8 +122,14 @@ class REST(object):
         self.uploader(data, url)
 
     def post_vlan_domain(self, data):
-        url = f'{self.base_url}/ipam/vlan-domains/'
+        url = f'{self.base_url}/ipam/vlan-groups/'
         logger.info('Posting VLAN domain data to {}'.format(url))
+        res = self.uploader(data,url)
+        return res
+
+    def post_vlan(self, data):
+        url = f'{self.base_url}/ipam/vlans/'
+        logger.info('Posting VLAN data to {}'.format(url))
         res = self.uploader(data,url)
         return res
 
@@ -294,7 +300,7 @@ class REST(object):
         return data
 
     def get_vlan_domains(self):
-        url = f'{self.base_url}/ipam/vlan_domains/'
+        url = f'{self.base_url}/ipam/vlan-groups/'
         logger.info('Fetching VLAN domains from {}'.format(url))
         data = self.fetcher(url)
         return data
@@ -516,20 +522,25 @@ class DB(object):
         vlan_dom_data = json.loads(rest.get_vlan_domains())['results']
         vlan_dom_list = {}
         for vlan_dom in vlan_dom_data:
-            vlan_dom_list.update(vlan_dom['slug']: vlan_dom['id'])
+            vlan_dom_list.update({vlan_dom['slug']: vlan_dom['id']})
 
         for line in data:
             vlan_dom_id, vlan_dom_group, vlan_dom_desc, \
                 vlan_id, vlan_type, vlan_desc = line
             vlan_dom_slug = slugify.slugify(vlan_dom_desc)
-            if vlan_dom_slug not in vlan_dom_list:
+            if vlan_dom_slug not in vlan_dom_list.keys():
                 vlan_dom = {}
-                vlan_dom.update('name': vlan_dom_desc)
-                vlan_dom.update('slug': vlan_dom_slug)
-                result = json.loads(rest.post_vlan_domain(vlan_dom))
-                vlan_dom_list.update(vlan_dom_slug: result['id'])
+                vlan_dom.update({'name': vlan_dom_desc})
+                vlan_dom.update({'slug': vlan_dom_slug})
+                result = rest.post_vlan_domain(vlan_dom)
+                vlan_dom_list.update({vlan_dom_slug: result['id']})
 
-            pp.pprint(line)
+            vlan = {}
+            vlan.update({'vid': vlan_id})
+            vlan.update({'group': vlan_dom_list[vlan_dom_slug]})
+            vlan.update({'description': vlan_desc})
+            rest.post_vlan(vlan)
+
 
     def get_locations(self):
         """
@@ -1925,7 +1936,7 @@ class DB(object):
             #self.get_vms()
             #self.get_container_map()
             #self.get_interfaces()
-            self.link_interfaces()
+            #self.link_interfaces()
 
     @staticmethod
     def get_port_by_id(ports, port_id):
