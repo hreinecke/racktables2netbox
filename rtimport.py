@@ -1654,12 +1654,9 @@ class DB(object):
         data = cur.fetchall()
         cur.close()
 
-        if config['Log']['DEBUG']:
-            msg = ('Device to IP', str(data))
-            logger.debug(msg)
-
         for line in data:
             rawip, nic_name, hostname = line
+            ip = self.convert_ip(rawip)
             obj_type = 'dcim.device'
             obj_data = json.loads(rest.check_device(hostname))['results']
             if not obj_data:
@@ -1668,16 +1665,18 @@ class DB(object):
                     logger.info(f'Device {hostname} not found!')
                     continue
                 obj_type = 'virtualization.vm'
+            if not nic_name:
+                logger.info(f'No Interface name for device {device} ip {ip}')
+                continue
             if obj_type =='dcim.device':
-                if_data = json.loads(rest.check_interface(objdata[0]['id'], nic_name))['results']
+                if_data = json.loads(rest.check_interface(obj_data[0]['id'], nic_name))['results']
             else:
-                if_data = json.loads(rest.check_vm_interface(objdata[0]['id'], nic_name))['results']
+                if_data = json.loads(rest.check_vm_interface(obj_data[0]['id'], nic_name))['results']
             if not if_data:
                 logger.info(f'Interface {nic_name} on device {hostname} not found!')
                 continue
             devmap = {}
             obj_id = if_data[0]['ip']
-            ip = self.convert_ip(rawip)
             devmap.update({'assigned_object_type': obj_type})
             devmap.update({'assigned_object_id': obj_id})
             rest.patch_ip(ip, devmap)
