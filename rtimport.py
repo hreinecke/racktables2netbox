@@ -76,7 +76,8 @@ class REST(object):
     def post_subnet(self, data):
         url = self.base_url + '/ipam/prefixes/'
         logger.info('Posting data to {}'.format(url))
-        self.uploader(data, url)
+        ret = self.uploader(data, url)
+        return ret
 
     def post_ip(self, data):
         url = self.base_url + '/ipam/ip-addresses/'
@@ -213,6 +214,11 @@ class REST(object):
     def patch_ip(self, id, data):
         url = f'{self.base_url}/ipam/ip-addresses/{id}'
         logger.info('Patching ip address from {}'.format(url))
+        self.patcher(data, url)
+
+    def patch_subnet(self, id, data):
+        url = f'{self.base_url}/ipam/prefixes/{id}/'
+        logger.info('Patching subnet from {}'.format(url))
         self.patcher(data, url)
 
     def patch_device(self, id, data):
@@ -520,7 +526,8 @@ class DB(object):
         cur = self.con.cursor()
         q = """SELECT vdesc.vlan_descr as vdom_desc,
             vdesc.vlan_id AS vlan_id,
-            subnet.ip AS subnet_ip, subnet.mask as subnet_mask
+            subnet.ip AS subnet_ip, subnet.mask as subnet_mask,
+            subnet.name AS subnet_name
             FROM VLANIPv4 AS vi
             INNER JOIN VLANDescription AS vdesc ON vi.domain_id = vdesc.domain_id AND vi.vlan_id = vdesc.vlan_id
             INNER JOIN IPv4Network AS subnet ON vi.ipv4net_id = subnet.id"""
@@ -529,7 +536,31 @@ class DB(object):
         cur.close()
 
         for line in data:
-            pp.pprint(line)
+            vdom_desc, vlan_id, subnet_ip_raw, subnet_mask, subnet_name = line
+            vlan_dom = json.loads(rest.get_vlan_domain(slugify.slugify(vdom_desc)))['results']
+            if not vlan_dom:
+                logger.info(f'VLAN domain {vdom_desc} not found!')
+                continue
+            vdom_id = vlan_dom[0]['id']
+            vlan = json.loads(rest.get_vlan(vdom_id, vlan_id))['results']
+            if not vlan:
+                logger.info(f'VLAN {vdom_desc}/{vlan_id} not found!')
+                continue
+            subnet_ip = self.convert_ip(subnet_ip_raw)
+            subnet = json.loads(rest.get_subnet(subnet_ip, subnet_mask))['results']
+            if not subnet:
+                subnet_data = {}
+                subnet_data.update({'prefix': '/'.join([subnet, str(mask)])})
+                subnet_data.update({'status':'active'})
+                subnet_data.update({'description': name})
+                subnet = rest.post_subnet(subnet_data)
+
+            if 'vlan' in subnet:
+                continue
+
+            subnet_data = {}
+            subnet_data.update({'vlan': vlan['id']})
+            rest.patch_subnet(subnet['id'], subnet_data)
 
     def get_locations(self):
         """
