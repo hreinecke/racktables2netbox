@@ -505,7 +505,7 @@ class DB(object):
             vdesc.vlan_type as vlan_type,
             vdesc.vlan_descr as description
         FROM VLANDomain AS vdom
-        INNER JOIN VLANDescription AS vdesc WHERE vdom.id = vdesc.domain_id"""
+        LEFT JOIN VLANDescription AS vdesc ON vdom.id = vdesc.domain_id"""
         cur.execute(q)
         data = cur.fetchall()
         cur.close()
@@ -542,11 +542,12 @@ class DB(object):
         :return:
         """
         cur = self.con.cursor()
-        q = """SELECT vdesc.vlan_descr as vdom_desc,
+        q = """SELECT vdom.description as vdom_desc,
             vdesc.vlan_id AS vlan_id,
             subnet.ip AS subnet_ip, subnet.mask as subnet_mask,
             subnet.name AS subnet_name
             FROM VLANIPv4 AS vi
+            INNER JOIN VLANDomain AS vdom ON vi.domain_id = vdom.id
             INNER JOIN VLANDescription AS vdesc ON vi.domain_id = vdesc.domain_id AND vi.vlan_id = vdesc.vlan_id
             INNER JOIN IPv4Network AS subnet ON vi.ipv4net_id = subnet.id"""
         cur.execute(q)
@@ -1966,7 +1967,7 @@ class DB(object):
         with self.con:
             self.get_interface_types()
             self.get_device_roles()
-            #self.get_vlans()
+            self.get_vlans()
             #self.get_subnets()
             self.get_ipv4_vlans()
             #self.get_tags()
