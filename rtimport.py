@@ -284,6 +284,12 @@ class REST(object):
         data = self.fetcher(url)
         return data
 
+    def check_vlan_domain(self, vdom):
+        url = f'{self.base_url}/ipam/vlan-groups/?slug={vdom}'
+        logger.info('Fetching VLAN domains from {}'.format(url))
+        data = self.fetcher(url)
+        return data
+
     def check_rack(self, loc, rack):
         url = self.base_url + '/dcim/racks/?name=' + rack + '&location=' + loc
         logger.info('Checking rack from {}'.format(url))
@@ -537,7 +543,7 @@ class DB(object):
 
         for line in data:
             vdom_desc, vlan_id, subnet_ip_raw, subnet_mask, subnet_name = line
-            vlan_dom = json.loads(rest.get_vlan_domain(slugify.slugify(vdom_desc)))['results']
+            vlan_dom = json.loads(rest.check_vlan_domain(slugify.slugify(vdom_desc)))['results']
             if not vlan_dom:
                 logger.info(f'VLAN domain {vdom_desc} not found!')
                 continue
