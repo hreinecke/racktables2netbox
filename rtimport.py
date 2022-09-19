@@ -7,45 +7,12 @@ import json
 import logging
 import pprint
 import pymysql
-import pynetbox
 import requests
 import slugify
 import socket
 import struct
 import urllib3
 import re
-
-class Migrator:
-    def slugify(self, text):
-        return slugify.slugify(text, max_length=50)
-
-    def create_tenant_group(self, name):
-        pass
-
-    def create_tenant(self, name, tenant_group=None):
-        logger.info("Creating tenant {}").format(name)
-
-        tenant = {
-            'name': name,
-            'slug': self.slugify(name)
-        }
-
-        if tenant_group:
-            tenant["tenant_group"] = netbox.tenancy.tenant_groups.all()
-        
-        return netbox.tenancy.tenants.create(tenant)
-
-    def create_region(self, name, parent=None):
-        netbox.dcim.regions.create()
-
-        if not parent:
-            pass 
-        pass
-
-    def create_site(self, name, region, status, physical_address, facility, shipping_address, contact_phone, contact_email, contact_name, tenant, time_zone):
-        slug = self.slugify(name)
-        pass    
-
 
 # Re-Enabled SSL verification
 # urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -2006,21 +1973,12 @@ if __name__ == '__main__':
     logger.addHandler(fh)
     logger.addHandler(ch)
 
-    netbox = pynetbox.api(config['NetBox']['NETBOX_HOST'], token=config['NetBox']['NETBOX_TOKEN'])
-
-    tenant_groups = netbox.tenancy.tenant_groups.all()
-
-    print()
-    
-    
     rest = REST()    
     racktables = DB()
     racktables.get_data()
     #racktables.get_device_to_ip()
     #racktables.get_pdus()
     #racktables.get_patch_panels()
-
-    migrator = Migrator()
 
     logger.info('[!] Done!')
     # sys.exit()
