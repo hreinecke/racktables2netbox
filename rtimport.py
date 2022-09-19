@@ -1647,9 +1647,9 @@ class DB(object):
         cur = self.con.cursor()
         q = """SELECT
             ipa.ip as ipaddress, ipa.name as ifname,
-            Object.name as hostname
-            FROM IPv4Allocation AS ipa`
-            LEFT JOIN Object ON Object.id = object_id"""
+            obj.name as hostname
+            FROM IPv4Allocation AS ipa
+            LEFT JOIN Object AS obj ON obj.id = ipa.object_id"""
         cur.execute(q)
         data = cur.fetchall()
         cur.close()
@@ -1659,14 +1659,28 @@ class DB(object):
             logger.debug(msg)
 
         for line in data:
-            devmap = {}
             rawip, nic_name, hostname = line
+            obj_type = 'dcim.device'
+            obj_data = json.loads(rest.check_device(hostname))['results']
+            if not obj_data:
+                obj_data = json.loads(rest.check_vm(hostname))['results']
+                if not obj_data:
+                    logger.info(f'Device {hostname} not found!')
+                    continue
+                obj_type = 'virtualization.vm'
+            if obj_type =='dcim.device':
+                if_data = json.loads(rest.check_interface(objdata[0]['id'], nic_name))['results']
+            else:
+                if_data = json.loads(rest.check_vm_interface(objdata[0]['id'], nic_name))['results']
+            if not if_data:
+                logger.info(f'Interface {nic_name} on device {hostname} not found!')
+                continue
+            devmap = {}
+            obj_id = if_data[0]['ip']
             ip = self.convert_ip(rawip)
-            devmap.update({'address': ip})
-            devmap.update({'device': hostname})
-            if nic_name:
-                devmap.update({'tag': nic_name})
-            pp.pprint(devmap)
+            devmap.update({'assigned_object_type': obj_type})
+            devmap.update({'assigned_object_id': obj_id})
+            rest.patch_ip(ip, devmap)
 
     def link_interfaces(self):
         cable_type = {'cat3', 'cat5', 'cat5e', 'cat6', 'cat6a',
