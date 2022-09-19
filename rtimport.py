@@ -506,20 +506,23 @@ class DB(object):
             vlan.update({'vid': vlan_id})
             vlan.update({'group': vlan_dom_list[vlan_dom_slug]})
             vlan.update({'description': vlan_desc})
-            rest.post_vlan(vlan)
+            try:
+                rest.post_vlan(vlan)
+            except:
+                pass
 
     def get_ipv4_vlans(self):
         """
         Match VLAN IDs to IPv4 subnets
         :return:
         """
-        cur = self.cursor()
-        q = """SELECT vd.description as vdom_desc,
+        cur = self.con.cursor()
+        q = """SELECT vdesc.vlan_descr as vdom_desc,
             vdesc.vlan_id AS vlan_id,
             subnet.ip AS subnet_ip, subnet.mask as subnet_mask
             FROM VLANIPv4 AS vi
-            INNER JOIN VLANDescription AS vdesc WHERE vi.domain_id = vdesc.domain_id AND vi.vlan_id = vdesc.vlan_id
-            INNER JOIN IPv4Network AS subnet WHERE vi.ipv4net_id = subnet.id"""
+            INNER JOIN VLANDescription AS vdesc ON vi.domain_id = vdesc.domain_id AND vi.vlan_id = vdesc.vlan_id
+            INNER JOIN IPv4Network AS subnet ON vi.ipv4net_id = subnet.id"""
         cur.execute(q)
         data = cur.fetchall()
         cur.close()
