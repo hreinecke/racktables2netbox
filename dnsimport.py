@@ -71,21 +71,21 @@ class REST(object):
         logger.debug(f'HTTP Response: {r.status_code} - {r.reason} - {r.text}')
         r.raise_for_status()
 
-        return r.text
+        return r.json()
 
     def post_ip(self, data):
-        url = self.base_url + '/ipam/ip-addresses/'
+        url = f'{self.base_url}/ipam/ip-addresses/'
         logger.info('Posting IP data to {}'.format(url))
         self.uploader(data, url)
 
     def check_ip(self, addr):
-        url = self.base_url + '/ipam/ip-addresses/?description=' + addr
+        url = f'{self.base_url}/ipam/ip-addresses/?address={addr}'
         logger.info('Checking ip address from {}'.format(url))
         data = self.fetcher(url)
         return data
 
     def patch_ip(self, id, data):
-        url = f'{self.base_url}/ipam/ip-addresses/{id}'
+        url = f'{self.base_url}/ipam/ip-addresses/{id}/'
         logger.info('Patching ip address from {}'.format(url))
         self.patcher(data, url)
 
@@ -140,16 +140,24 @@ class DB(object):
         with open(filename) as file:
             lines = file.readlines()
             for line in lines:
-                name, ipaddr = line
-
+                name, ipaddr = line.split(' ')
+                if not name:
+                    continue
+                ip = ipaddr.rstrip()
+                if 'CNAME' in ip:
+                    continue
                 net = {}
-                net.update({'address': f'{ipaddr}/32'})
                 net.update({'dns_name': f'{name}.arch.suse.de'})
 
-                ipdata = rest.check_ip(net['address'])
+                ipdata = rest.check_ip(f'{ip}')['results']
                 if ipdata:
-                    if ipdate['dns_name'] = net['dns_name']:
+                    if ipdata[0]['dns_name'] == net['dns_name']:
                         continue
+                    if ipdata[0]['dns_name']:
+                        logger.info(f'Changing DNS name from {ipdata[0]["dns_name"]} to {net["dns_name"]}')
+                    rest.patch_ip(ipdata[0]['id'], net)
+                else:
+                    net.update({'address': ip + '/32'})
                     rest.post_ip(net)
 
     def get_data(self, filename):
