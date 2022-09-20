@@ -1588,7 +1588,7 @@ class DB(object):
 	    (SELECT PortInnerInterface.iif_name FROM PortInnerInterface WHERE PortInnerInterface.id = Port.iif_id) AS iif_name,
 	    (SELECT PortOuterInterface.oif_name FROM PortOuterInterface WHERE PortOuterInterface.id = Port.type) AS oif_name
             FROM Port
-	    INNER JOIN Object ON Port.object_id = Object.id
+	    LEFT JOIN Object ON Port.object_id = Object.id
             WHERE Port.object_id = %d""" % id
         cur.execute(q)
         data = cur.fetchall()
@@ -1608,6 +1608,8 @@ class DB(object):
                 data = json.loads(rest.check_vm(object_name))['results']
             if not data:
                 logger.info(f'Device {object_name} not found for interface {name}')
+                continue
+            if oif_name not in self.interface_types:
                 continue
             if_type = self.interface_types[oif_name]
             if if_type == 'other':
@@ -1976,20 +1978,20 @@ class DB(object):
             self.connect()
 
         with self.con:
-            #self.get_interface_types()
-            #self.get_device_roles()
+            self.get_interface_types()
+            self.get_device_roles()
             #self.get_vlans()
             #self.get_subnets()
             #self.get_ipv4_vlans()
             #self.get_tags()
             #self.get_locations()
             #self.get_racks()
-            #self.get_hardware()
-            #self.get_devices()
+            self.get_hardware()
+            self.get_devices()
             #self.get_vms()
             #self.get_container_map()
-            #self.get_interfaces()
-            #self.link_interfaces()
+            self.get_interfaces()
+            self.link_interfaces()
             self.get_device_to_ip()
 
     @staticmethod
