@@ -151,6 +151,9 @@ class DB(object):
 
                 ipdata = rest.check_ip(f'{ip}')['results']
                 if ipdata:
+                    if ipdata[0]['description'] != ipdata[0]['dns_name']:
+                        logger.info(f'Host {net["dns_name"]} does not match description {ipdata[0]["description"]')
+                        raise ValueError
                     if ipdata[0]['dns_name'] == net['dns_name']:
                         continue
                     if ipdata[0]['dns_name']:
