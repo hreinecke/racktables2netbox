@@ -1668,7 +1668,7 @@ class DB(object):
                     continue
                 obj_type = 'virtualization.vm'
             if not nic_name:
-                logger.info(f'No Interface name for device {device} ip {ip}')
+                logger.info(f'No Interface name for device {hostname} ip {ip}')
                 continue
             if obj_type =='dcim.device':
                 if_data = json.loads(rest.check_interface(obj_data[0]['id'], nic_name))['results']
@@ -1758,9 +1758,16 @@ class DB(object):
             cable_data.update({'length_unit': 'm'})
             if link_label:
                 cable_data.update({'label': link_label})
-            if if_data_a[0]['speed'] <= 1000000:
+            if 'type' not in if_data_a[0]:
+                if 'type' in if_data_b[0]:
+                    if_type = if_data_b[0]['type']
+                else:
+                    if_type = '1000base-t'
+            else:
+                if_type = if_data_a[0]['type']
+            if '-t' in if_type or '-tx' in if_type:
                 cable_data.update({'type': 'cat7'})
-            elif 'gfc' in if_data_a[0]['type']:
+            elif 'gfc' in if_type:
                 cable_data.update({'type': 'mmf-om2'})
             else:
                 cable_data.update({'type': 'dac-passive'})
